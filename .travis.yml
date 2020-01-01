@@ -1,0 +1,13 @@
+sudo: false
+language: ruby
+cache: bundler
+rvm:
+  - 1.9.3
+  - 2.0
+  - 2.3
+  - ruby
+  - jruby
+before_install:
+  - sudo apt-get update -q
+  - sudo apt-get install -y --no-install-recommends libarchive13
+script: bundle exec rake

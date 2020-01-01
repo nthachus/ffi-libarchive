@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Archive
   class Reader < BaseArchive
     private_class_method :new
@@ -46,27 +48,26 @@ module Archive
 
       if params[:command]
         cmd = params[:command]
-        raise Error, @archive if C.archive_read_support_compression_program(archive, cmd) != C::OK
-      else
-        raise Error, @archive if C.archive_read_support_compression_all(archive) != C::OK
+        raise Error, archive if C.archive_read_support_compression_program(archive, cmd) != C::OK
+      elsif C.archive_read_support_compression_all(archive) != C::OK
+        raise Error, archive
       end
 
-      raise Error, @archive if C.archive_read_support_format_all(archive) != C::OK
+      raise Error, archive if C.archive_read_support_format_all(archive) != C::OK
 
-      case
-      when params[:file_name]
-        raise Error, @archive if C.archive_read_open_filename(archive, params[:file_name], 1024) != C::OK
-      when params[:memory]
+      if params[:file_name]
+        raise Error, archive if C.archive_read_open_filename(archive, params[:file_name], 1024) != C::OK
+      elsif params[:memory]
         str = params[:memory]
         @data = FFI::MemoryPointer.new(str.bytesize + 1)
         @data.write_string str, str.bytesize
-        raise Error, @archive if C.archive_read_open_memory(archive, @data, str.bytesize) != C::OK
-      when params[:reader]
+        raise Error, archive if C.archive_read_open_memory(archive, @data, str.bytesize) != C::OK
+      elsif params[:reader]
         @reader = params[:reader]
         @buffer = nil
 
-        @read_callback = FFI::Function.new(:int, %i{pointer pointer pointer}) do |_, _, archive_data|
-          data = @reader.call || ""
+        @read_callback = FFI::Function.new(:int, [:pointer, :pointer, :pointer]) do |_, _, archive_data|
+          data = @reader.call || ''
           @buffer = FFI::MemoryPointer.new(:char, data.size) if @buffer.nil? || @buffer.size < data.size
           @buffer.write_bytes(data)
           archive_data.write_pointer(@buffer)
@@ -75,14 +76,14 @@ module Archive
         C.archive_read_set_read_callback(archive, @read_callback)
 
         if @reader.respond_to?(:skip)
-          @skip_callback = FFI::Function.new(:int, %i{pointer pointer int64}) do |_, _, offset|
+          @skip_callback = FFI::Function.new(:int, [:pointer, :pointer, :int64]) do |_, _, offset|
             @reader.skip(offset)
           end
           C.archive_read_set_skip_callback(archive, @skip_callback)
         end
 
         if @reader.respond_to?(:seek)
-          @seek_callback = FFI::Function.new(:int, %i{pointer pointer int64 int}) do |_, _, offset, whence|
+          @seek_callback = FFI::Function.new(:int, [:pointer, :pointer, :int64, :int]) do |_, _, offset, whence|
             @reader.seek(offset, whence)
           end
           C.archive_read_set_seek_callback(archive, @seek_callback)
@@ -90,23 +91,23 @@ module Archive
 
         # Required or open1 will segfault, even though the callback data is not used.
         C.archive_read_set_callback_data(archive, nil)
-        raise Error, @archive if C.archive_read_open1(archive) != C::OK
+        raise Error, archive if C.archive_read_open1(archive) != C::OK
       end
-    rescue
+    rescue StandardError
       close
       raise
     end
 
     def extract(entry, flags = 0)
-      raise ArgumentError, "Expected Archive::Entry as first argument" unless entry.is_a? Entry
-      raise ArgumentError, "Expected Integer as second argument" unless flags.is_a? Integer
+      raise ArgumentError, 'Expected Archive::Entry as first argument' unless entry.is_a? Entry
+      raise ArgumentError, 'Expected Integer as second argument' unless flags.is_a? Integer
 
       flags |= EXTRACT_FFLAGS
-      raise Error, @archive if C.archive_read_extract(archive, entry.entry, flags) != C::OK
+      raise Error, archive if C.archive_read_extract(archive, entry.entry, flags) != C::OK
     end
 
     def header_position
-      raise Error, @archive if C.archive_read_header_position archive
+      raise Error, archive if C.archive_read_header_position archive
     end
 
     def next_header
@@ -115,10 +116,9 @@ module Archive
       when C::OK
         Entry.from_pointer entry_ptr.read_pointer
       when C::EOF
-        @eof = true
         nil
       else
-        raise Error, @archive
+        raise Error, archive
       end
     end
 
@@ -135,24 +135,26 @@ module Archive
     end
 
     def read_data(size = C::DATA_BUFFER_SIZE)
-      raise ArgumentError, "Buffer size must be > 0 (was: #{size})" unless size.is_a?(Integer) && size > 0
+      raise ArgumentError, "Buffer size must be > 0 (was: #{size})" if !size.is_a?(Integer) || size <= 0
 
       data = nil
-
       buffer = FFI::MemoryPointer.new(size)
       len = 0
-      while (n = C.archive_read_data(archive, buffer, size)) > 0
+
+      while (n = C.archive_read_data(archive, buffer, size)) != 0
         case n
         when C::FATAL, C::WARN, C::RETRY
-          raise Error, @archive
+          raise Error, archive
         else
+          chunk = buffer.get_bytes(0, n)
           if block_given?
-            yield buffer.get_bytes(0, n)
+            yield chunk
           else
-            data ||= ""
-            data.concat(buffer.get_bytes(0, n))
+            data ||= ''.dup
+            data << chunk
           end
         end
+
         len += n
       end
 
@@ -160,8 +162,8 @@ module Archive
     end
 
     def save_data(file_name)
-      IO.sysopen(file_name, "wb") do |fd|
-        raise Error, @archive if C.archive_read_data_into_fd(archive, fd) != C::OK
+      IO.sysopen(file_name, 'wb') do |fd|
+        raise Error, archive if C.archive_read_data_into_fd(archive, fd) != C::OK
       end
     end
   end

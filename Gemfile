@@ -1,23 +1,6 @@
-source "https://rubygems.org"
+# frozen_string_literal: true
 
+source 'https://rubygems.org'
+
+# Specify gem's dependencies in the gemspec file
 gemspec
-
-group :docs do
-  gem "yard"
-  gem "redcarpet"
-  gem "github-markup"
-end
-
-group :test do
-  gem "chefstyle"
-  gem "rspec", "~> 3.0"
-  gem "rake"
-  gem "test-unit"
-end
-
-group :debug do
-  gem "pry"
-  gem "pry-byebug"
-  gem "pry-stack_explorer"
-  gem "rb-readline"
-end

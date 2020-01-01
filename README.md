@@ -1,50 +1,36 @@
-# ffi-libarchive
+# Ruby FFI binding to `libarchive` [![Build Status](https://travis-ci.org/nthachus/ffi_libarchive.svg?branch=master)](https://travis-ci.org/nthachus/ffi_libarchive)
 
-[![Build status](https://badge.buildkite.com/a6b96170c6257e384000f311fa0052cb7880762e06bc66c91e.svg)](https://buildkite.com/chef-oss/chef-ffi-libarchive-master-verify)
-[![Gem Version](https://badge.fury.io/rb/ffi-libarchive.svg)](https://badge.fury.io/rb/ffi-libarchive)
-
-**Umbrella Project**: [Chef Foundation](https://github.com/chef/chef-oss-practices/blob/master/projects/chef-foundation.md)
-
-**Project State**: [Active](https://github.com/chef/chef-oss-practices/blob/master/repo-management/repo-states.md#active)
-
-**Issues [Response Time Maximum](https://github.com/chef/chef-oss-practices/blob/master/repo-management/repo-states.md)**: 14 days
-
-**Pull Request [Response Time Maximum](https://github.com/chef/chef-oss-practices/blob/master/repo-management/repo-states.md)**: 14 days
-
-A Ruby FFI binding to [libarchive][0].
-
-This library provides Ruby FFI bindings to the well-known [libarchive library](https://github.com/libarchive/libarchive).
+This library provides Ruby FFI bindings to the well-known [libarchive library](https://www.libarchive.org/).
 
 ## Installation
 
-Ensure that you have libarchive installed. On Debian/Ubuntu:
+Ensure that you have `libarchive` installed.
 
-```sh
-apt install libarchive13
-```
+- On Debian/Ubuntu:
 
-On macOS with Homebrew:
-```sh
-brew install libarchive
-```
+      $ apt install libarchive13
+
+- On macOS with Homebrew:
+
+      $ brew install libarchive
+
+- On Windows with msys2:
+
+      $ pacman -S mingw-w64-x86_64-libarchive
 
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'ffi-libarchive'
+gem 'ffi_libarchive'
 ```
 
 And then execute:
 
-```shell
-$ bundle
-```
+    $ bundle
 
 Or install it yourself as:
 
-```shell
-$ gem install ffi-libarchive
-```
+    $ gem install ffi_libarchive
 
 ## Usage
 
@@ -60,40 +46,40 @@ end
 reader.close
 ```
 
-To create a gzipped tar archive:
+To create a tar-gzipped archive:
 
 ```ruby
 Archive.write_open_filename('my.tgz', Archive::COMPRESSION_GZIP, Archive::FORMAT_TAR_PAX_RESTRICTED) do |tar|
   content = File.read 'some_path'
   size = content.size
+
   tar.new_entry do |e|
     e.pathname = 'some_path'
     e.size = size
     e.filetype = Archive::Entry::FILE
+
     tar.write_header e
     tar.write_data content
   end
 end
 ```
 
+## Development
+
+After checking out the repo, run `bundle install` to install dependencies. Then, run `bundle exec rake` to run the tests.
+You can also run `irb -r bundler/setup -r ffi_libarchive` for an interactive prompt that will allow you to experiment.
+
+To install this gem onto your local machine, run `bundle exec rake install`.
+
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at <https://github.com/chef/ffi-libarchive>. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Community Guidelines](https://docs.chef.io/community_guidelines.html) code of conduct.
+Bug reports and pull requests are welcome on GitHub at <https://github.com/nthachus/ffi_libarchive>.
+This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Community Guidelines](https://www.chef.io/code-of-conduct/chef-contributor-covenant/) code of conduct.
 
 ## License
 
-- License:: Apache License, Version 2.0
+Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
 
-```text
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+## Code of Conduct
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```
+Everyone interacting in the this project’s codebases, issue trackers,... is expected to follow the [Chef Community Code of Conduct](https://www.chef.io/code-of-conduct/).

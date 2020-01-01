@@ -1,16 +1,18 @@
+/.git/
+.gitignore
+Dockerfile
+
 /coverage/
 /pkg/
 /spec/reports/
 /test/tmp/
 /tmp/
 
-## Documentation cache and generated files:
 /.yardoc
 /_yardoc/
 /doc/
 /rdoc/
 
-## Environment normalization:
 /.bundle/
 /vendor/bundle
 

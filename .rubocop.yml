@@ -1,0 +1,44 @@
+AllCops:
+  TargetRubyVersion: 2.3
+
+Style/Documentation:
+  Enabled: false
+
+Metrics/LineLength:
+  Max: 120
+
+Gemspec/RequiredRubyVersion:
+  Enabled: false
+
+Style/ExpandPathArguments:
+  Enabled: false
+
+Style/PercentLiteralDelimiters:
+  PreferredDelimiters:
+    '%w': '[]'
+
+Style/SymbolArray:
+  Enabled: false
+
+# TODO: Remove below!
+Metrics/AbcSize:
+  Max: 45
+
+Metrics/CyclomaticComplexity:
+  Max: 18
+
+Metrics/PerceivedComplexity:
+  Max: 21
+
+Metrics/MethodLength:
+  Max: 40
+
+Metrics/ModuleLength:
+  Max: 400
+
+Metrics/ClassLength:
+  Max: 400
+
+Layout/EndOfLine:
+  # EnforcedStyle: lf
+  Enabled: false

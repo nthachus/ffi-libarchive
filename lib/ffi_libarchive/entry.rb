@@ -1,68 +1,56 @@
+# frozen_string_literal: true
+
 module Archive
   class Entry
-    S_IFMT   = 0170000
-    S_IFSOCK = 0140000 #  socket
-    S_IFLNK  = 0120000 #  symbolic link
-    S_IFREG  = 0100000 #  regular file
-    S_IFBLK  = 0060000 #  block device
-    S_IFDIR  = 0040000 #  directory
-    S_IFCHR  = 0020000 #  character device
-    S_IFIFO  = 0010000 #  FIFO
+    S_IFMT   = 0o170000
+    S_IFSOCK = 0o140000 #  socket
+    S_IFLNK  = 0o120000 #  symbolic link
+    S_IFREG  = 0o100000 #  regular file
+    S_IFBLK  = 0o060000 #  block device
+    S_IFDIR  = 0o040000 #  directory
+    S_IFCHR  = 0o020000 #  character device
+    S_IFIFO  = 0o010000 #  FIFO
 
-    SOCKET            = 0140000 #  socket
-    SYMBOLIC_LINK     = 0120000 #  symbolic link
-    FILE              = 0100000 #  regular file
-    BLOCK_SPECIAL     = 0060000 #  block device
-    DIRECTORY         = 0040000 #  directory
-    CHARACTER_SPECIAL = 0020000 #  character device
-    FIFO              = 0010000 #  FIFO
+    SOCKET            = 0o140000 #  socket
+    SYMBOLIC_LINK     = 0o120000 #  symbolic link
+    FILE              = 0o100000 #  regular file
+    BLOCK_SPECIAL     = 0o060000 #  block device
+    DIRECTORY         = 0o040000 #  directory
+    CHARACTER_SPECIAL = 0o020000 #  character device
+    FIFO              = 0o010000 #  FIFO
 
     def self.from_pointer(entry)
       new entry
     end
 
     def initialize(entry = nil)
-      @entry_free = [true]
       if entry
         @entry = entry
-        yield self if block_given?
       else
         @entry = C.archive_entry_new
-        raise Error, @entry unless @entry
-
-        if block_given?
-          result = yield self
-          C.archive_entry_free(@entry)
-          @entry = nil
-          return result
-        else
-          @entry_free[0] = false
-          ObjectSpace.define_finalizer(self, Entry.finalizer(@entry, @entry_free))
-        end
+        raise Error, 'No entry object' unless @entry
       end
-    end
 
-    def self.finalizer(entry, entry_free)
-      proc do |*_args|
-        C.archive_entry_free(entry) unless entry_free[0]
+      if block_given?
+        begin
+          yield self
+        ensure
+          close
+        end
+      else
+        ObjectSpace.define_finalizer(self, method(:close).to_proc)
       end
     end
 
     def close
       # TODO: do we need synchronization here?
-      if @entry && !@entry_free[0]
-        @entry_free[0] = true
-        C.archive_entry_free(@entry)
-      end
+      C.archive_entry_free(@entry) if @entry
     ensure
       @entry = nil
     end
 
-    def entry
-      raise "No entry object" unless @entry
-
-      @entry
-    end
+    # @return [Pointer]
+    attr_reader :entry
 
     def atime
       Time.at C.archive_entry_atime(entry)
@@ -125,32 +113,33 @@ module Archive
     end
 
     def block_special?
-      C.archive_entry_filetype(entry) & S_IFMT == S_IFBLK
+      filetype & S_IFMT == S_IFBLK
     end
 
     def character_special?
-      C.archive_entry_filetype(entry) & S_IFMT == S_IFCHR
+      filetype & S_IFMT == S_IFCHR
     end
 
     def directory?
-      C.archive_entry_filetype(entry) & S_IFMT == S_IFDIR
+      filetype & S_IFMT == S_IFDIR
     end
 
     def fifo?
-      C.archive_entry_filetype(entry) & S_IFMT == S_IFIFO
+      filetype & S_IFMT == S_IFIFO
     end
 
     def regular?
-      C.archive_entry_filetype(entry) & S_IFMT == S_IFREG
+      filetype & S_IFMT == S_IFREG
     end
+
     alias file? regular?
 
     def socket?
-      C.archive_entry_filetype(entry) & S_IFMT == S_IFSOCK
+      filetype & S_IFMT == S_IFSOCK
     end
 
     def symbolic_link?
-      C.archive_entry_filetype(entry) & S_IFMT == S_IFLNK
+      filetype & S_IFMT == S_IFLNK
     end
 
     def copy_fflags_text(fflags_text)
@@ -176,17 +165,19 @@ module Archive
     def copy_lstat(filename)
       # TODO: get this work without ffi-inliner
       begin
-        require File.join(Archive::LIBPATH, "ffi-libarchive", "stat")
-      rescue => e
+        require 'ffi_libarchive/stat'
+      rescue StandardError => e
         raise "ffi-inliner build for copy_stat failed:\n#{e}"
       end
 
       stat = Archive::Stat.ffi_libarchive_create_lstat(filename)
       raise Error, "Copy stat failed: #{Archive::Stat.ffi_error}" if stat.null?
 
-      C.archive_entry_copy_stat(entry, stat)
-    ensure
-      Archive::Stat.ffi_libarchive_free_stat(stat)
+      begin
+        C.archive_entry_copy_stat(entry, stat)
+      ensure
+        Archive::Stat.ffi_libarchive_free_stat(stat)
+      end
     end
 
     def copy_pathname(file_name)
@@ -202,17 +193,19 @@ module Archive
     def copy_stat(filename)
       # TODO: get this work without ffi-inliner
       begin
-        require File.join(Archive::LIBPATH, "ffi-libarchive", "stat")
-      rescue => e
+        require 'ffi_libarchive/stat'
+      rescue StandardError => e
         raise "ffi-inliner build for copy_stat failed:\n#{e}"
       end
 
       stat = Archive::Stat.ffi_libarchive_create_stat(filename)
       raise Error, "Copy stat failed: #{Archive::Stat.ffi_error}" if stat.null?
 
-      C.archive_entry_copy_stat(entry, stat)
-    ensure
-      Archive::Stat.ffi_libarchive_free_stat(stat)
+      begin
+        C.archive_entry_copy_stat(entry, stat)
+      ensure
+        Archive::Stat.ffi_libarchive_free_stat(stat)
+      end
     end
 
     def copy_symlink(slnk)
@@ -253,7 +246,8 @@ module Archive
       set = FFI::MemoryPointer.new :long
       clear = FFI::MemoryPointer.new :long
       C.archive_entry_fflags(entry, set, clear)
-      [set.get_long(0), clear.get_long(0)]
+
+      [set.read(:long), clear.read(:long)]
     end
 
     def fflags_text
@@ -265,7 +259,7 @@ module Archive
     end
 
     def filetype=(type)
-      type = Entry.const_get type.to_s.upcase.to_sym if type.is_a? Symbol
+      type = self.class.const_get(type.to_s.upcase) unless type.is_a?(Integer)
       C.archive_entry_set_filetype(entry, type)
     end
 
@@ -461,13 +455,19 @@ module Archive
       name = FFI::MemoryPointer.new :pointer
       value = FFI::MemoryPointer.new :pointer
       size = FFI::MemoryPointer.new :size_t
-      if C.archive_entry_xattr_next(entry, name, value, size) != C::OK
-        return nil
-      else
-        # TODO: someday size.read_size_t could work
-        return [name.null? ? nil : name.read_string,
-                value.null? ? nil : value.get_string(0, size.read_ulong)]
-      end
+      return nil if C.archive_entry_xattr_next(entry, name, value, size) != C::OK
+
+      # TODO: sometimes size.read(:size_t) could work
+      value_str =
+        if value.null?
+          nil
+        elsif size.null?
+          value.read_string_to_null
+        else
+          value.read_string_length(size.read(:size_t))
+        end
+
+      [name.null? ? nil : name.read_string_to_null, value_str]
     end
 
     def xattr_reset

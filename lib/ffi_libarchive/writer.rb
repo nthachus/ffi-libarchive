@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Archive
   class Writer < BaseArchive
     private_class_method :new
@@ -24,9 +26,7 @@ module Archive
           writer.close
         end
       else
-        if compression.is_a? String
-          compression = -1
-        end
+        # compression = -1 unless compression.is_a?(Integer)
         new memory: string, compression: compression, format: format
       end
     end
@@ -35,62 +35,42 @@ module Archive
       super C.method(:archive_write_new), C.method(:archive_write_finish)
 
       compression = params[:compression]
-      case compression
-      when Symbol
-        compression = Archive.const_get("COMPRESSION_#{compression.to_s.upcase}".to_sym)
-      end
+      compression = Archive.const_get("COMPRESSION_#{compression}".upcase) unless compression.is_a?(Integer)
 
       format = params[:format]
-      case format
-      when Symbol
-        format = Archive.const_get("FORMAT_#{format.to_s.upcase}".to_sym)
-      end
+      format = Archive.const_get("FORMAT_#{format}".upcase) unless format.is_a?(Integer)
 
-      raise Error, @archive if C.archive_write_set_compression(archive, compression) != C::OK
-
-      raise Error, @archive if C.archive_write_set_format(archive, format) != C::OK
+      raise Error, archive if C.archive_write_set_compression(archive, compression) != C::OK
+      raise Error, archive if C.archive_write_set_format(archive, format) != C::OK
 
       if params[:file_name]
-        raise Error, @archive if C.archive_write_open_filename(archive, params[:file_name]) != C::OK
+        raise Error, archive if C.archive_write_open_filename(archive, params[:file_name]) != C::OK
       elsif params[:memory]
-        if C.archive_write_get_bytes_in_last_block(@archive) == -1
-          C.archive_write_set_bytes_in_last_block(archive, 1)
-        end
+        C.archive_write_set_bytes_in_last_block(archive, 1) if C.archive_write_get_bytes_in_last_block(archive) < 0
+
         @data = write_callback params[:memory]
-        raise Error, @archive if C.archive_write_open(archive, nil,
-          nil,
-          @data,
-          nil) != C::OK
+        raise Error, archive if C.archive_write_open(archive, nil, nil, @data, nil) != C::OK
       end
-    rescue
+    rescue StandardError
       close
       raise
     end
-
-    def write_callback(data)
-      proc do |_ar, _client, buffer, length|
-        data.concat buffer.get_bytes(0, length)
-        length
-      end
-    end
-    private :write_callback
 
     def new_entry
       entry = Entry.new
       if block_given?
         begin
-          result = yield entry
+          yield entry
         ensure
           entry.close
         end
-        result
       else
         entry
       end
     end
 
     def add_entry
-      raise ArgumentError, "No block given" unless block_given?
+      raise ArgumentError, 'No block given' unless block_given?
 
       entry = Entry.new
       data = yield entry
@@ -108,20 +88,19 @@ module Archive
 
     def write_data(*args)
       if block_given?
-        raise ArgumentError, "wrong number of argument (#{args.size} for 0)" if args.size > 0
+        raise ArgumentError, "wrong number of argument (#{args.size} for 0)" unless args.empty?
 
         ar = archive
         len = 0
         loop do
           str = yield
-          if (n = C.archive_write_data(ar, str, str.bytesize)) < 1
-            return len
-          end
+          n = C.archive_write_data(ar, str, str.bytesize)
+          return len if n < 1
 
           len += n
         end
       else
-        raise ArgumentError, "wrong number of argument (#{args.size}) for 1)" if args.size != 1
+        raise ArgumentError, "wrong number of argument (#{args.size}) for 1)" if args.empty?
 
         str = args[0]
         C.archive_write_data(archive, str, str.bytesize)
@@ -129,7 +108,16 @@ module Archive
     end
 
     def write_header(entry)
-      raise Error, @archive if C.archive_write_header(archive, entry.entry) != C::OK
+      raise Error, archive if C.archive_write_header(archive, entry.entry) != C::OK
+    end
+
+    private
+
+    def write_callback(data)
+      proc do |_ar, _client, buffer, length|
+        data << buffer.get_bytes(0, length)
+        length
+      end
     end
   end
 end

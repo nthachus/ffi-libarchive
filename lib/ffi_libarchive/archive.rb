@@ -1,14 +1,16 @@
-require "ffi"
+# frozen_string_literal: true
+
+require 'ffi'
 
 module Archive
   module C
     def self.attach_function_maybe(*args)
       attach_function(*args)
-    rescue FFI::NotFoundError # rubocop:disable Lint/HandleExceptions
+    rescue FFI::NotFoundError # rubocop:disable all
     end
 
     extend FFI::Library
-    ffi_lib %w{libarchive.so.13 libarchive.13 libarchive-13 libarchive.so libarchive archive}
+    ffi_lib ENV['ARCHIVE_LIB'] || %w[libarchive.so.13 libarchive.13 libarchive-13 libarchive.so libarchive archive]
 
     attach_function :archive_version_number, [], :int
     attach_function :archive_version_string, [], :string
@@ -16,24 +18,24 @@ module Archive
     attach_function :archive_errno, [:pointer], :int
 
     attach_function :archive_read_new, [], :pointer
-    attach_function :archive_read_open_filename, %i{pointer string size_t}, :int
-    attach_function :archive_read_open_memory, %i{pointer pointer size_t}, :int
+    attach_function :archive_read_open_filename, [:pointer, :string, :size_t], :int
+    attach_function :archive_read_open_memory, [:pointer, :pointer, :size_t], :int
     attach_function :archive_read_open1, [:pointer], :int
-    attach_function :archive_read_support_compression_program, %i{pointer string}, :int
+    attach_function :archive_read_support_compression_program, [:pointer, :string], :int
     attach_function :archive_read_support_compression_all, [:pointer], :int
 
-    callback :archive_read_callback, %i{pointer pointer pointer}, :int
-    callback :archive_skip_callback, %i{pointer pointer int64}, :int
-    callback :archive_seek_callback, %i{pointer pointer int64 int}, :int
-    attach_function :archive_read_set_read_callback, %i{pointer archive_read_callback}, :int
-    attach_function :archive_read_set_callback_data, %i{pointer pointer}, :int
-    attach_function :archive_read_set_skip_callback, %i{pointer archive_skip_callback}, :int
-    attach_function :archive_read_set_seek_callback, %i{pointer archive_seek_callback}, :int
+    callback :archive_read_callback, [:pointer, :pointer, :pointer], :int
+    callback :archive_skip_callback, [:pointer, :pointer, :int64], :int
+    callback :archive_seek_callback, [:pointer, :pointer, :int64, :int], :int
+    attach_function :archive_read_set_read_callback, [:pointer, :archive_read_callback], :int
+    attach_function :archive_read_set_callback_data, [:pointer, :pointer], :int
+    attach_function :archive_read_set_skip_callback, [:pointer, :archive_skip_callback], :int
+    attach_function :archive_read_set_seek_callback, [:pointer, :archive_seek_callback], :int
 
-    attach_function_maybe :archive_read_set_format, %i{pointer int}, :int
-    attach_function_maybe :archive_read_append_filter, %i{pointer int}, :int
-    attach_function_maybe :archive_read_append_filter_program, %i{pointer pointer}, :int
-    attach_function_maybe :archive_read_append_filter_program_signature, %i{pointer string pointer size_t}, :int
+    attach_function_maybe :archive_read_set_format, [:pointer, :int], :int
+    attach_function_maybe :archive_read_append_filter, [:pointer, :int], :int
+    attach_function_maybe :archive_read_append_filter_program, [:pointer, :pointer], :int
+    attach_function_maybe :archive_read_append_filter_program_signature, [:pointer, :string, :pointer, :size_t], :int
 
     attach_function_maybe :archive_read_support_filter_all, [:pointer], :int
     attach_function_maybe :archive_read_support_filter_bzip2, [:pointer], :int
@@ -73,18 +75,18 @@ module Archive
     attach_function_maybe :archive_read_support_format_zip_seekable, [:pointer], :int
 
     attach_function :archive_read_finish, [:pointer], :int
-    attach_function :archive_read_extract, %i{pointer pointer int}, :int
+    attach_function :archive_read_extract, [:pointer, :pointer, :int], :int
     attach_function :archive_read_header_position, [:pointer], :int
-    attach_function :archive_read_next_header, %i{pointer pointer}, :int
-    attach_function :archive_read_data, %i{pointer pointer size_t}, :size_t
-    attach_function :archive_read_data_into_fd, %i{pointer int}, :int
+    attach_function :archive_read_next_header, [:pointer, :pointer], :int
+    attach_function :archive_read_data, [:pointer, :pointer, :size_t], :size_t
+    attach_function :archive_read_data_into_fd, [:pointer, :int], :int
 
     attach_function :archive_write_new, [], :pointer
-    attach_function :archive_write_open_filename, %i{pointer string}, :int
-    callback :archive_open_callback, %i{pointer pointer}, :int
-    callback :archive_write_callback, %i{pointer pointer pointer size_t}, :int
-    callback :archive_close_callback, %i{pointer pointer}, :int
-    attach_function :archive_write_open, %i{pointer pointer pointer archive_write_callback pointer}, :int
+    attach_function :archive_write_open_filename, [:pointer, :string], :int
+    callback :archive_open_callback, [:pointer, :pointer], :int
+    callback :archive_write_callback, [:pointer, :pointer, :pointer, :size_t], :int
+    callback :archive_close_callback, [:pointer, :pointer], :int
+    attach_function :archive_write_open, [:pointer, :pointer, :pointer, :archive_write_callback, :pointer], :int
     attach_function :archive_write_set_compression_none, [:pointer], :int
     attach_function_maybe :archive_write_set_compression_gzip, [:pointer], :int
     attach_function_maybe :archive_write_set_compression_bzip2, [:pointer], :int
@@ -92,8 +94,9 @@ module Archive
     attach_function_maybe :archive_write_set_compression_compress, [:pointer], :int
     attach_function_maybe :archive_write_set_compression_lzma, [:pointer], :int
     attach_function_maybe :archive_write_set_compression_xz, [:pointer], :int
-    attach_function :archive_write_set_compression_program, %i{pointer string}, :int
+    attach_function :archive_write_set_compression_program, [:pointer, :string], :int
 
+    # @param [Pointer] archive
     def self.archive_write_set_compression(archive, compression)
       case compression
       when String
@@ -115,94 +118,94 @@ module Archive
       end
     end
 
-    attach_function :archive_write_set_format, %i{pointer int}, :int
-    attach_function :archive_write_data, %i{pointer pointer size_t}, :ssize_t
-    attach_function :archive_write_header, %i{pointer pointer}, :int
+    attach_function :archive_write_set_format, [:pointer, :int], :int
+    attach_function :archive_write_data, [:pointer, :pointer, :size_t], :ssize_t
+    attach_function :archive_write_header, [:pointer, :pointer], :int
     attach_function :archive_write_finish, [:pointer], :void
     attach_function :archive_write_get_bytes_in_last_block, [:pointer], :int
-    attach_function :archive_write_set_bytes_in_last_block, %i{pointer int}, :int
+    attach_function :archive_write_set_bytes_in_last_block, [:pointer, :int], :int
 
     attach_function :archive_entry_new, [], :pointer
     attach_function :archive_entry_free, [:pointer], :void
     attach_function :archive_entry_atime, [:pointer], :time_t
-    attach_function :archive_entry_atime_nsec, %i{pointer time_t long}, :void
+    attach_function :archive_entry_atime_nsec, [:pointer, :time_t, :long], :void
     attach_function_maybe :archive_entry_atime_is_set, [:pointer], :int
-    attach_function :archive_entry_set_atime, %i{pointer time_t long}, :int
+    attach_function :archive_entry_set_atime, [:pointer, :time_t, :long], :int
     attach_function_maybe :archive_entry_unset_atime, [:pointer], :int
     attach_function_maybe :archive_entry_birthtime, [:pointer], :time_t
-    attach_function_maybe :archive_entry_birthtime_nsec, %i{pointer time_t long}, :void
+    attach_function_maybe :archive_entry_birthtime_nsec, [:pointer, :time_t, :long], :void
     attach_function_maybe :archive_entry_birthtime_is_set, [:pointer], :int
-    attach_function_maybe :archive_entry_set_birthtime, %i{pointer time_t long}, :int
+    attach_function_maybe :archive_entry_set_birthtime, [:pointer, :time_t, :long], :int
     attach_function_maybe :archive_entry_unset_birthtime, [:pointer], :int
     attach_function :archive_entry_ctime, [:pointer], :time_t
-    attach_function :archive_entry_ctime_nsec, %i{pointer time_t long}, :void
+    attach_function :archive_entry_ctime_nsec, [:pointer, :time_t, :long], :void
     attach_function_maybe :archive_entry_ctime_is_set, [:pointer], :int
-    attach_function :archive_entry_set_ctime, %i{pointer time_t long}, :int
+    attach_function :archive_entry_set_ctime, [:pointer, :time_t, :long], :int
     attach_function_maybe :archive_entry_unset_ctime, [:pointer], :int
     attach_function :archive_entry_mtime, [:pointer], :time_t
-    attach_function :archive_entry_mtime_nsec, %i{pointer time_t long}, :void
+    attach_function :archive_entry_mtime_nsec, [:pointer, :time_t, :long], :void
     attach_function_maybe :archive_entry_mtime_is_set, [:pointer], :int
-    attach_function :archive_entry_set_mtime, %i{pointer time_t long}, :int
+    attach_function :archive_entry_set_mtime, [:pointer, :time_t, :long], :int
     attach_function_maybe :archive_entry_unset_mtime, [:pointer], :int
     attach_function :archive_entry_dev, [:pointer], :dev_t
-    attach_function :archive_entry_set_dev, %i{pointer dev_t}, :void
+    attach_function :archive_entry_set_dev, [:pointer, :dev_t], :void
     attach_function :archive_entry_devmajor, [:pointer], :dev_t
-    attach_function :archive_entry_set_devmajor, %i{pointer dev_t}, :void
+    attach_function :archive_entry_set_devmajor, [:pointer, :dev_t], :void
     attach_function :archive_entry_devminor, [:pointer], :dev_t
-    attach_function :archive_entry_set_devminor, %i{pointer dev_t}, :void
+    attach_function :archive_entry_set_devminor, [:pointer, :dev_t], :void
     attach_function :archive_entry_filetype, [:pointer], :mode_t
-    attach_function :archive_entry_set_filetype, %i{pointer mode_t}, :void
-    attach_function :archive_entry_fflags, %i{pointer pointer pointer}, :void
-    attach_function :archive_entry_set_fflags, %i{pointer ulong ulong}, :void
+    attach_function :archive_entry_set_filetype, [:pointer, :mode_t], :void
+    attach_function :archive_entry_fflags, [:pointer, :pointer, :pointer], :void
+    attach_function :archive_entry_set_fflags, [:pointer, :ulong, :ulong], :void
     attach_function :archive_entry_fflags_text, [:pointer], :string
     attach_function :archive_entry_gid, [:pointer], :gid_t
-    attach_function :archive_entry_set_gid, %i{pointer gid_t}, :void
+    attach_function :archive_entry_set_gid, [:pointer, :gid_t], :void
     attach_function :archive_entry_gname, [:pointer], :string
-    attach_function :archive_entry_set_gname, %i{pointer string}, :void
+    attach_function :archive_entry_set_gname, [:pointer, :string], :void
     attach_function :archive_entry_hardlink, [:pointer], :string
-    attach_function :archive_entry_set_hardlink, %i{pointer string}, :void
-    attach_function :archive_entry_set_link, %i{pointer string}, :void
+    attach_function :archive_entry_set_hardlink, [:pointer, :string], :void
+    attach_function :archive_entry_set_link, [:pointer, :string], :void
     attach_function :archive_entry_ino, [:pointer], :ino_t
-    attach_function :archive_entry_set_ino, %i{pointer ino_t}, :void
+    attach_function :archive_entry_set_ino, [:pointer, :ino_t], :void
     attach_function :archive_entry_mode, [:pointer], :mode_t
-    attach_function :archive_entry_set_mode, %i{pointer mode_t}, :void
-    attach_function :archive_entry_set_perm, %i{pointer mode_t}, :void
+    attach_function :archive_entry_set_mode, [:pointer, :mode_t], :void
+    attach_function :archive_entry_set_perm, [:pointer, :mode_t], :void
     attach_function :archive_entry_nlink, [:pointer], :uint
-    attach_function :archive_entry_set_nlink, %i{pointer uint}, :void
+    attach_function :archive_entry_set_nlink, [:pointer, :uint], :void
     attach_function :archive_entry_pathname, [:pointer], :string
-    attach_function :archive_entry_set_pathname, %i{pointer string}, :void
+    attach_function :archive_entry_set_pathname, [:pointer, :string], :void
     attach_function :archive_entry_rdev, [:pointer], :dev_t
-    attach_function :archive_entry_set_rdev, %i{pointer dev_t}, :void
+    attach_function :archive_entry_set_rdev, [:pointer, :dev_t], :void
     attach_function :archive_entry_rdevmajor, [:pointer], :dev_t
-    attach_function :archive_entry_set_rdevmajor, %i{pointer dev_t}, :void
+    attach_function :archive_entry_set_rdevmajor, [:pointer, :dev_t], :void
     attach_function :archive_entry_rdevminor, [:pointer], :dev_t
-    attach_function :archive_entry_set_rdevminor, %i{pointer dev_t}, :void
+    attach_function :archive_entry_set_rdevminor, [:pointer, :dev_t], :void
     attach_function :archive_entry_size, [:pointer], :int64_t
-    attach_function :archive_entry_set_size, %i{pointer int64_t}, :void
+    attach_function :archive_entry_set_size, [:pointer, :int64_t], :void
     attach_function_maybe :archive_entry_unset_size, [:pointer], :void
     attach_function_maybe :archive_entry_size_is_set, [:pointer], :int
     attach_function :archive_entry_sourcepath, [:pointer], :string
     attach_function :archive_entry_strmode, [:pointer], :string
     attach_function :archive_entry_symlink, [:pointer], :string
-    attach_function :archive_entry_set_symlink, %i{pointer string}, :void
+    attach_function :archive_entry_set_symlink, [:pointer, :string], :void
     attach_function :archive_entry_uid, [:pointer], :uid_t
-    attach_function :archive_entry_set_uid, %i{pointer uid_t}, :void
+    attach_function :archive_entry_set_uid, [:pointer, :uid_t], :void
     attach_function :archive_entry_uname, [:pointer], :string
-    attach_function :archive_entry_set_uname, %i{pointer string}, :void
-    attach_function :archive_entry_copy_stat, %i{pointer pointer}, :void
-    attach_function :archive_entry_copy_fflags_text, %i{pointer string}, :string
-    attach_function :archive_entry_copy_gname, %i{pointer string}, :string
-    attach_function :archive_entry_copy_uname, %i{pointer string}, :string
-    attach_function :archive_entry_copy_hardlink, %i{pointer string}, :string
-    attach_function :archive_entry_copy_link, %i{pointer string}, :string
-    attach_function :archive_entry_copy_symlink, %i{pointer string}, :string
-    attach_function :archive_entry_copy_sourcepath, %i{pointer string}, :string
-    attach_function :archive_entry_copy_pathname, %i{pointer string}, :string
+    attach_function :archive_entry_set_uname, [:pointer, :string], :void
+    attach_function :archive_entry_copy_stat, [:pointer, :pointer], :void
+    attach_function :archive_entry_copy_fflags_text, [:pointer, :string], :string
+    attach_function :archive_entry_copy_gname, [:pointer, :string], :string
+    attach_function :archive_entry_copy_uname, [:pointer, :string], :string
+    attach_function :archive_entry_copy_hardlink, [:pointer, :string], :string
+    attach_function :archive_entry_copy_link, [:pointer, :string], :string
+    attach_function :archive_entry_copy_symlink, [:pointer, :string], :string
+    attach_function :archive_entry_copy_sourcepath, [:pointer, :string], :string
+    attach_function :archive_entry_copy_pathname, [:pointer, :string], :string
     attach_function :archive_entry_xattr_clear, [:pointer], :void
-    attach_function :archive_entry_xattr_add_entry, %i{pointer string pointer size_t}, :void
+    attach_function :archive_entry_xattr_add_entry, [:pointer, :string, :pointer, :size_t], :void
     attach_function :archive_entry_xattr_count, [:pointer], :int
     attach_function :archive_entry_xattr_reset, [:pointer], :int
-    attach_function :archive_entry_xattr_next, %i{pointer pointer pointer pointer}, :int
+    attach_function :archive_entry_xattr_next, [:pointer, :pointer, :pointer, :pointer], :int
 
     EOF    = 1
     OK     = 0
@@ -277,89 +280,81 @@ module Archive
   EXTRACT_NO_HFS_COMPRESSION = 0x4000
   EXTRACT_HFS_COMPRESSION_FORCED = 0x8000
   EXTRACT_SECURE_NOABSOLUTEPATHS = 0x10000
-  EXTRACT_CLEAR_NOCHANGE_FFLAGS = 0x20000
+  EXTRACT_CLEAR_NOCHANGE_FFLAGS  = 0x20000
 
-  def self.read_open_filename(file_name, command = nil, &block)
-    Reader.open_filename file_name, command, &block
-  end
+  class << self
+    def read_open_filename(file_name, command = nil, &block)
+      Reader.open_filename file_name, command, &block
+    end
 
-  def self.read_open_memory(string, command = nil, &block)
-    Reader.open_memory string, command, &block
-  end
+    def read_open_memory(string, command = nil, &block)
+      Reader.open_memory string, command, &block
+    end
 
-  def self.read_open_stream(reader, &block)
-    Reader.open_stream reader, &block
-  end
+    def read_open_stream(reader, &block)
+      Reader.open_stream reader, &block
+    end
 
-  def self.write_open_filename(file_name, compression, format, &block)
-    Writer.open_filename file_name, compression, format, &block
-  end
+    def write_open_filename(file_name, compression, format, &block)
+      Writer.open_filename file_name, compression, format, &block
+    end
 
-  def self.write_open_memory(string, compression, format, &block)
-    Writer.open_memory string, compression, format, &block
-  end
+    def write_open_memory(string, compression, format, &block)
+      Writer.open_memory string, compression, format, &block
+    end
 
-  def self.version_number
-    C.archive_version_number
-  end
+    # @return [Integer]
+    def version_number
+      C.archive_version_number
+    end
 
-  def self.version_string
-    C.archive_version_string
+    # @return [String]
+    def version_string
+      C.archive_version_string
+    end
   end
 
   class Error < StandardError
     def initialize(archive)
-      if archive.is_a? String
-        super archive
-      else
-        super C.archive_error_string(archive).to_s
-      end
+      super(archive.respond_to?(:null?) ? C.archive_error_string(archive) : archive)
     end
   end
 
+  # @abstract
   class BaseArchive
+    # @param [Method] alloc
+    # @param [Method] free
     def initialize(alloc, free)
-      @archive = nil
-      @archive_free = nil
+      raise ArgumentError, 'Invalid methods' unless alloc.respond_to?(:call) && free.respond_to?(:call)
+
       @archive = alloc.call
-      @archive_free = [nil]
-      raise Error, @archive unless @archive
+      raise Error, 'No archive open' unless @archive
 
-      @archive_free[0] = free
-      ObjectSpace.define_finalizer(self, BaseArchive.finalizer(@archive, @archive_free))
-    end
-
-    def self.finalizer(archive, archive_free)
-      proc do |*_args|
-        archive_free[0].call(archive) if archive_free[0]
-      end
+      @archive_free = [free]
+      ObjectSpace.define_finalizer(self, method(:close).to_proc)
     end
 
     def close
       # TODO: do we need synchronization here?
-      if @archive
-        # TODO: Error check?
-        @archive_free[0].call(@archive)
-      end
+      @archive_free[0].call(@archive) if @archive && @archive_free[0].respond_to?(:call)
+      # TODO: Error check?
     ensure
       @archive = nil
       @archive_free[0] = nil
-      @data = nil
     end
 
-    def archive
-      raise Error, "No archive open" unless @archive
+    # @!visibility protected
+    # @return [Pointer]
+    attr_reader :archive
 
-      @archive
-    end
-    protected :archive
-
+    # @return [String]
     def error_string
-      C.archive_error_string(@archive)
+      C.archive_error_string(archive)
     end
 
+    # @return [Integer]
     def errno
-      C.archive_errno(@archive)
+      C.archive_errno(archive)
     end
   end
 end
