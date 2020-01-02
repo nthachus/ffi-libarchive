@@ -31,13 +31,13 @@ Metrics/PerceivedComplexity:
   Max: 21
 
 Metrics/MethodLength:
-  Max: 40
+  Max: 30
 
 Metrics/ModuleLength:
-  Max: 400
+  Max: 300
 
 Metrics/ClassLength:
-  Max: 400
+  Max: 300
 
 Layout/EndOfLine:
   # EnforcedStyle: lf

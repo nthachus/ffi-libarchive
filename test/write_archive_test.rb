@@ -18,7 +18,7 @@ class WriteArchiveTest < Test::Unit::TestCase
   end
 
   def test_end_to_end_write_read_memory
-    memory = ''.dup
+    memory = String.new
     Archive.write_open_memory(memory, Archive::COMPRESSION_GZIP, Archive::FORMAT_TAR) do |ar|
       write_content ar
     end
@@ -59,6 +59,8 @@ class WriteArchiveTest < Test::Unit::TestCase
   end
 
   def verify_content_memory(memory)
+    assert memory && !memory.empty?
+
     Archive.read_open_memory(memory) do |ar|
       content_spec_idx = 0
 
@@ -82,6 +84,8 @@ class WriteArchiveTest < Test::Unit::TestCase
   end
 
   def verify_content(filename)
+    assert filename && File.exist?(filename)
+
     Archive.read_open_filename(filename) do |ar|
       content_spec_idx = 0
 

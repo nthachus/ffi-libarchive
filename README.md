@@ -41,7 +41,7 @@ flags = Archive::EXTRACT_PERM
 reader = Archive::Reader.open_filename('/path/to/archive.tgz')
 
 reader.each_entry do |entry|
-  reader.extract(entry, flags.to_i)
+  reader.extract(entry, flags)
 end
 reader.close
 ```

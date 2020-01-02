@@ -14,6 +14,8 @@ class ReadArchiveTest < Test::Unit::TestCase
   end
 
   def test_read_tar_gz_from_file_with_external_gunzip
+    omit_if FFI::Platform.windows?
+
     Archive.read_open_filename(fixture_path('test.tar.gz'), 'gunzip') do |ar|
       verify_content(ar)
     end
@@ -26,31 +28,23 @@ class ReadArchiveTest < Test::Unit::TestCase
   end
 
   def test_read_tar_gz_from_memory_with_external_gunzip
-    Archive.read_open_memory(archive_content, 'gunzip') do |ar|
+    omit_if FFI::Platform.windows?
+
+    Archive.read_open_memory(archive_content, :gunzip) do |ar|
       verify_content(ar)
     end
   end
 
   def test_read_entry_bigger_than_internal_buffer
     entry_size = 1024 * 4 - 3
+    # @type [String]
     content = SecureRandom.urlsafe_base64(entry_size)[0, entry_size]
 
     Dir.mktmpdir do |dir|
       filename = File.join(dir, 'test.tar.gz')
 
-      Archive.write_open_filename(filename, Archive::COMPRESSION_BZIP2, Archive::FORMAT_TAR) do |ar|
-        ar.new_entry do |entry|
-          entry.pathname = 'chubby.dat'
-          entry.mode = 0o666
-          entry.filetype = Archive::Entry::FILE
-          entry.atime = Time.now.to_i
-          entry.mtime = Time.now.to_i
-          entry.size = entry_size
-
-          ar.write_header(entry)
-          ar.write_data(content)
-        end
-      end
+      write_content filename, content
+      assert File.exist?(filename)
 
       Archive.read_open_filename(filename) do |ar|
         ar.next_header
@@ -62,9 +56,10 @@ class ReadArchiveTest < Test::Unit::TestCase
 
       Archive.read_open_filename(filename) do |ar|
         ar.next_header
-        data = ''.dup
+        data = String.new
         ar.read_data(128) { |chunk| data << chunk }
 
+        assert_equal entry_size, data.size
         assert_equal content, data
       end
     end
@@ -111,13 +106,17 @@ class ReadArchiveTest < Test::Unit::TestCase
   end
 
   class TestReader
+    # @!visibility protected
+    # @return [File]
+    attr_reader :fp
+
     def initialize(filename = 'test.tar.gz')
       @fp = File.open(TestHelper.fixture_path(filename), 'rb')
       ObjectSpace.define_finalizer(self, method(:close).to_proc)
     end
 
     def call
-      @fp.read(32)
+      fp.read(32)
     end
 
     def close
@@ -143,16 +142,16 @@ class ReadArchiveTest < Test::Unit::TestCase
     def skip(offset)
       @skip_called = true
 
-      orig_pos = @fp.tell
-      @fp.seek(offset, :CUR)
-      @fp.tell - orig_pos
+      orig_pos = fp.tell
+      fp.seek(offset, :CUR)
+      fp.tell - orig_pos
     end
 
     def seek(offset, whence)
       @seek_called = true
 
-      @fp.seek(offset, whence)
-      @fp.tell
+      fp.seek(offset, whence)
+      fp.tell
     end
   end
 
@@ -187,6 +186,24 @@ class ReadArchiveTest < Test::Unit::TestCase
   # @return [String]
   def archive_content
     @archive_content ||= File.read(fixture_path('test.tar.gz'), mode: 'rb')
+  end
+
+  # @param [String] filename
+  # @param [String] content
+  def write_content(filename, content)
+    Archive.write_open_filename(filename, Archive::COMPRESSION_BZIP2, Archive::FORMAT_TAR) do |ar|
+      ar.new_entry do |entry|
+        entry.pathname = 'chubby.dat'
+        entry.mode = 0o666
+        entry.filetype = Archive::Entry::FILE
+        entry.atime = Time.now.to_i
+        entry.mtime = Time.now.to_i
+        entry.size = content.bytesize
+
+        ar.write_header(entry)
+        ar.write_data(content)
+      end
+    end
   end
 
   def verify_content(arc)

@@ -2,27 +2,32 @@
 
 module Archive
   class Entry
-    S_IFMT   = 0o170000
-    S_IFSOCK = 0o140000 #  socket
-    S_IFLNK  = 0o120000 #  symbolic link
-    S_IFREG  = 0o100000 #  regular file
-    S_IFBLK  = 0o060000 #  block device
-    S_IFDIR  = 0o040000 #  directory
-    S_IFCHR  = 0o020000 #  character device
-    S_IFIFO  = 0o010000 #  FIFO
+    # region File-type Constants
+    S_IFMT   = 0o170000 # bits mask
+    S_IFSOCK = 0o140000
+    S_IFLNK  = 0o120000
+    S_IFREG  = 0o100000
+    S_IFBLK  = 0o060000
+    S_IFDIR  = 0o040000
+    S_IFCHR  = 0o020000
+    S_IFIFO  = 0o010000
 
-    SOCKET            = 0o140000 #  socket
-    SYMBOLIC_LINK     = 0o120000 #  symbolic link
-    FILE              = 0o100000 #  regular file
-    BLOCK_SPECIAL     = 0o060000 #  block device
-    DIRECTORY         = 0o040000 #  directory
-    CHARACTER_SPECIAL = 0o020000 #  character device
-    FIFO              = 0o010000 #  FIFO
+    SOCKET           = S_IFSOCK
+    SYMBOLIC_LINK    = S_IFLNK
+    FILE             = S_IFREG # regular file
+    BLOCK_DEVICE     = S_IFBLK # block special device
+    DIRECTORY        = S_IFDIR
+    CHARACTER_DEVICE = S_IFCHR # character special device
+    FIFO             = S_IFIFO # named pipe (FIFO)
+    # endregion
 
+    # @param [Pointer]
+    # @return [Entry]
     def self.from_pointer(entry)
       new entry
     end
 
+    # @param [Pointer] entry
     def initialize(entry = nil)
       if entry
         @entry = entry
@@ -112,11 +117,11 @@ module Archive
       C.archive_entry_ctime_nsec(entry)
     end
 
-    def block_special?
+    def block_device?
       filetype & S_IFMT == S_IFBLK
     end
 
-    def character_special?
+    def character_device?
       filetype & S_IFMT == S_IFCHR
     end
 
@@ -186,7 +191,7 @@ module Archive
     end
 
     def copy_sourcepath(path)
-      C.archive_copy_sourcepath(entry, path)
+      C.archive_entry_copy_sourcepath(entry, path)
       nil
     end
 
@@ -209,12 +214,12 @@ module Archive
     end
 
     def copy_symlink(slnk)
-      C.archive_copy_symlink(entry, slnk)
+      C.archive_entry_copy_symlink(entry, slnk)
       nil
     end
 
     def copy_uname(uname)
-      C.archive_copy_uname(entry, uname)
+      C.archive_entry_copy_uname(entry, uname)
       nil
     end
 

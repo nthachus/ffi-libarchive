@@ -4,136 +4,126 @@ module Archive
   class Reader < BaseArchive
     private_class_method :new
 
+    # @param [String] file_name
+    # @return [Reader]
+    # @yieldparam [Reader]
     def self.open_filename(file_name, command = nil)
       if block_given?
         reader = open_filename file_name, command
         begin
           yield reader
         ensure
-          reader.close
+          reader.close if reader.respond_to?(:close)
         end
       else
         new file_name: file_name, command: command
       end
     end
 
+    # @param [String] string
+    # @return [Reader]
+    # @yieldparam [Reader]
     def self.open_memory(string, command = nil)
       if block_given?
         reader = open_memory string, command
         begin
           yield reader
         ensure
-          reader.close
+          reader.close if reader.respond_to?(:close)
         end
       else
         new memory: string, command: command
       end
     end
 
-    def self.open_stream(reader)
+    # @param [#call] stream
+    # @return [Reader]
+    # @yieldparam [Reader]
+    def self.open_stream(stream, command = nil)
       if block_given?
-        reader = new reader: reader
+        reader = open_stream stream, command
         begin
           yield reader
         ensure
-          reader.close
+          reader.close if reader.respond_to?(:close)
         end
       else
-        new reader: reader
+        new reader: stream, command: command
       end
     end
 
+    # @param [Hash] params
+    # @option params [Object] :command
+    # @option params [String] :file_name
+    # @option params [String] :memory
+    # @option params [#call] :reader
     def initialize(params = {})
-      super C.method(:archive_read_new), C.method(:archive_read_finish)
+      super C.method(:archive_read_new), C.method(:archive_read_free)
 
-      if params[:command]
-        cmd = params[:command]
-        raise Error, archive if C.archive_read_support_compression_program(archive, cmd) != C::OK
-      elsif C.archive_read_support_compression_all(archive) != C::OK
-        raise Error, archive
+      begin
+        init_compression params[:command]
+        init_format
+
+        if params[:file_name]
+          init_for_filename params[:file_name]
+        elsif params[:memory]
+          init_for_memory params[:memory]
+        elsif params[:reader]
+          init_for_stream params[:reader]
+        end
+      rescue StandardError
+        close
+        raise
       end
-
-      raise Error, archive if C.archive_read_support_format_all(archive) != C::OK
-
-      if params[:file_name]
-        raise Error, archive if C.archive_read_open_filename(archive, params[:file_name], 1024) != C::OK
-      elsif params[:memory]
-        str = params[:memory]
-        @data = FFI::MemoryPointer.new(str.bytesize + 1)
-        @data.write_string str, str.bytesize
-        raise Error, archive if C.archive_read_open_memory(archive, @data, str.bytesize) != C::OK
-      elsif params[:reader]
-        @reader = params[:reader]
-        @buffer = nil
-
-        @read_callback = FFI::Function.new(:int, [:pointer, :pointer, :pointer]) do |_, _, archive_data|
-          data = @reader.call || ''
-          @buffer = FFI::MemoryPointer.new(:char, data.size) if @buffer.nil? || @buffer.size < data.size
-          @buffer.write_bytes(data)
-          archive_data.write_pointer(@buffer)
-          data.size
-        end
-        C.archive_read_set_read_callback(archive, @read_callback)
-
-        if @reader.respond_to?(:skip)
-          @skip_callback = FFI::Function.new(:int, [:pointer, :pointer, :int64]) do |_, _, offset|
-            @reader.skip(offset)
-          end
-          C.archive_read_set_skip_callback(archive, @skip_callback)
-        end
-
-        if @reader.respond_to?(:seek)
-          @seek_callback = FFI::Function.new(:int, [:pointer, :pointer, :int64, :int]) do |_, _, offset, whence|
-            @reader.seek(offset, whence)
-          end
-          C.archive_read_set_seek_callback(archive, @seek_callback)
-        end
-
-        # Required or open1 will segfault, even though the callback data is not used.
-        C.archive_read_set_callback_data(archive, nil)
-        raise Error, archive if C.archive_read_open1(archive) != C::OK
-      end
-    rescue StandardError
-      close
-      raise
     end
 
+    # @param [Entry] entry
+    # @param [Integer] flags  see ::EXTRACT_*
     def extract(entry, flags = 0)
       raise ArgumentError, 'Expected Archive::Entry as first argument' unless entry.is_a? Entry
       raise ArgumentError, 'Expected Integer as second argument' unless flags.is_a? Integer
 
       flags |= EXTRACT_FFLAGS
-      raise Error, archive if C.archive_read_extract(archive, entry.entry, flags) != C::OK
+      raise Error, self if C.archive_read_extract(archive, entry.entry, flags) != C::OK
     end
 
+    # Retrieve the byte offset in UNCOMPRESSED data where last-read header started.
+    # @return [Integer]
     def header_position
-      raise Error, archive if C.archive_read_header_position archive
+      C.archive_read_header_position archive
     end
 
+    # @return [Entry]
     def next_header
       entry_ptr = FFI::MemoryPointer.new(:pointer)
+
       case C.archive_read_next_header(archive, entry_ptr)
       when C::OK
         Entry.from_pointer entry_ptr.read_pointer
       when C::EOF
         nil
       else
-        raise Error, archive
+        raise Error, self
       end
     end
 
+    # @yieldparam [Entry]
     def each_entry
       while (entry = next_header)
         yield entry
       end
     end
 
-    def each_entry_with_data(_size = C::DATA_BUFFER_SIZE)
+    # @yieldparam [Entry] entry
+    # @yieldparam [String] data
+    def each_entry_with_data(size = C::DATA_BUFFER_SIZE)
       while (entry = next_header)
-        yield entry, read_data
+        yield entry, read_data(size)
       end
     end
 
+    # @return [String, Integer]
+    # @yieldparam [String] chunk
     def read_data(size = C::DATA_BUFFER_SIZE)
       raise ArgumentError, "Buffer size must be > 0 (was: #{size})" if !size.is_a?(Integer) || size <= 0
 
@@ -142,17 +132,16 @@ module Archive
       len = 0
 
       while (n = C.archive_read_data(archive, buffer, size)) != 0
-        case n
-        when C::FATAL, C::WARN, C::RETRY
-          raise Error, archive
+        # TODO: C::FATAL, C::WARN, C::RETRY
+        raise Error, self if n < 0 # rubocop:disable Style/NumericPredicate
+
+        chunk = buffer.read_bytes(n)
+        if block_given?
+          yield chunk
+        elsif data
+          data << chunk
         else
-          chunk = buffer.get_bytes(0, n)
-          if block_given?
-            yield chunk
-          else
-            data ||= ''.dup
-            data << chunk
-          end
+          data = chunk.dup
         end
 
         len += n
@@ -161,10 +150,66 @@ module Archive
       data || len
     end
 
+    # @param [String] file_name
     def save_data(file_name)
       IO.sysopen(file_name, 'wb') do |fd|
-        raise Error, archive if C.archive_read_data_into_fd(archive, fd) != C::OK
+        raise Error, self if C.archive_read_data_into_fd(archive, fd) != C::OK
       end
+    end
+
+    protected
+
+    def init_compression(command)
+      if command && !(cmd = command.to_s).empty?
+        raise Error, self if C.archive_read_support_compression_program(archive, cmd) != C::OK
+      else
+        begin
+          raise Error, self if C.archive_read_support_compression_all(archive) != C::OK
+        rescue StandardError
+          raise Error, self if C.archive_read_support_filter_all(archive) != C::OK
+        end
+      end
+    end
+
+    def init_format
+      raise Error, self if C.archive_read_support_format_all(archive) != C::OK
+    end
+
+    def init_for_filename(file_name)
+      raise Error, self if C.archive_read_open_filename(archive, file_name, 1024) != C::OK # block_size
+    end
+
+    def init_for_memory(string)
+      buffer = FFI::MemoryPointer.from_string(string)
+      raise Error, self if C.archive_read_open_memory(archive, buffer, string.bytesize) != C::OK
+    end
+
+    def init_for_stream(reader)
+      read_callback = proc do |_ar, _client_data, buffer|
+        # @type [String]
+        data = reader.call
+        if !data || data.empty?
+          0
+        else
+          buffer.write_pointer FFI::MemoryPointer.from_string(data)
+          data.bytesize
+        end
+      end
+      raise Error, self if C.archive_read_set_read_callback(archive, read_callback) != C::OK
+
+      if reader.respond_to?(:skip)
+        skip_callback = proc { |_ar, _client_data, request| reader.skip(request) }
+        raise Error, self if C.archive_read_set_skip_callback(archive, skip_callback) != C::OK
+      end
+
+      if reader.respond_to?(:seek)
+        seek_callback = proc { |_ar, _client_data, offset, whence| reader.seek(offset, whence) }
+        raise Error, self if C.archive_read_set_seek_callback(archive, seek_callback) != C::OK
+      end
+
+      # Required or open1 will segfault, even though the callback data is not used.
+      raise Error, self if C.archive_read_set_callback_data(archive, FFI::Pointer::NULL) != C::OK
+      raise Error, self if C.archive_read_open1(archive) != C::OK
     end
   end
 end
