@@ -1,5 +1,6 @@
 sudo: false
 language: ruby
+bundler_args: --without coverage
 cache: bundler
 rvm:
   - 1.9.3

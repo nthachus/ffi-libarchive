@@ -133,7 +133,7 @@ module Archive
 
       while (n = C.archive_read_data(archive, buffer, size)) != 0
         # TODO: C::FATAL, C::WARN, C::RETRY
-        raise Error, self if n < 0 # rubocop:disable Style/NumericPredicate
+        raise Error, self if n < 0
 
         chunk = buffer.read_bytes(n)
         if block_given?

@@ -204,12 +204,15 @@ module Archive
 
     attach_function :archive_entry_mode, [:pointer], :mode_t
     attach_function :archive_entry_set_mode, [:pointer, :mode_t], :void
+    attach_function :archive_entry_perm, [:pointer], :mode_t
     attach_function :archive_entry_set_perm, [:pointer, :mode_t], :void
     attach_function :archive_entry_nlink, [:pointer], :uint
     attach_function :archive_entry_set_nlink, [:pointer, :uint], :void
 
     attach_function :archive_entry_pathname, [:pointer], :string
     attach_function :archive_entry_set_pathname, [:pointer, :string], :void
+    attach_function_maybe :archive_entry_pathname_utf8, [:pointer], :string
+    attach_function_maybe :archive_entry_set_pathname_utf8, [:pointer, :string], :void
 
     attach_function :archive_entry_rdev, [:pointer], :dev_t
     attach_function :archive_entry_set_rdev, [:pointer, :dev_t], :void

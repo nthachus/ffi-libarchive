@@ -22,22 +22,22 @@ Style/SymbolArray:
 
 # TODO: Remove below!
 Metrics/AbcSize:
-  Max: 45
+  Max: 35
 
 Metrics/CyclomaticComplexity:
-  Max: 18
+  Max: 12
 
 Metrics/PerceivedComplexity:
-  Max: 21
+  Max: 14
 
 Metrics/MethodLength:
-  Max: 30
-
-Metrics/ModuleLength:
-  Max: 300
+  Max: 21
 
 Metrics/ClassLength:
-  Max: 300
+  Max: 210
+
+Metrics/ModuleLength:
+  Max: 220
 
 Layout/EndOfLine:
   # EnforcedStyle: lf

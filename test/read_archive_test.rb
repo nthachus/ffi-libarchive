@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
-require 'test_helper'
-require 'tmpdir'
 require 'securerandom'
+require 'tmpdir'
 
 class ReadArchiveTest < Test::Unit::TestCase
   include TestHelper
@@ -14,9 +13,7 @@ class ReadArchiveTest < Test::Unit::TestCase
   end
 
   def test_read_tar_gz_from_file_with_external_gunzip
-    omit_if FFI::Platform.windows?
-
-    Archive.read_open_filename(fixture_path('test.tar.gz'), 'gunzip') do |ar|
+    Archive.read_open_filename(fixture_path('test.tar.gz'), 'gzip -d') do |ar|
       verify_content(ar)
     end
   end
@@ -28,9 +25,7 @@ class ReadArchiveTest < Test::Unit::TestCase
   end
 
   def test_read_tar_gz_from_memory_with_external_gunzip
-    omit_if FFI::Platform.windows?
-
-    Archive.read_open_memory(archive_content, :gunzip) do |ar|
+    Archive.read_open_memory(archive_content, 'gzip -d') do |ar|
       verify_content(ar)
     end
   end
@@ -68,8 +63,10 @@ class ReadArchiveTest < Test::Unit::TestCase
   def test_extract_no_additional_flags
     Dir.mktmpdir do |dir|
       Archive.read_open_filename(fixture_path('test.tar.gz')) do |ar|
-        Dir.chdir(dir) do
+        Archive::Utils.change_cwd(dir) do
           ar.each_entry do |e|
+            next if e.symbolic_link? && FFI::Platform.windows?
+
             ar.extract(e)
 
             assert File.exist?(e.pathname)
@@ -83,14 +80,14 @@ class ReadArchiveTest < Test::Unit::TestCase
   def test_extract_extract_time
     Dir.mktmpdir do |dir|
       Archive.read_open_filename(fixture_path('test.tar.gz')) do |ar|
-        Dir.chdir(dir) do
+        Archive::Utils.change_cwd(dir) do
           ar.each_entry do |e|
+            next if e.symbolic_link? && FFI::Platform.windows?
+
             ar.extract(e, Archive::EXTRACT_TIME)
 
             assert File.exist?(e.pathname)
-            next if e.directory? || e.symbolic_link?
-
-            assert_equal File.mtime(e.pathname), e.mtime
+            assert_equal File.mtime(e.pathname), e.mtime unless e.directory? || e.symbolic_link?
           end
         end
       end
@@ -112,7 +109,16 @@ class ReadArchiveTest < Test::Unit::TestCase
 
     def initialize(filename = 'test.tar.gz')
       @fp = File.open(TestHelper.fixture_path(filename), 'rb')
-      ObjectSpace.define_finalizer(self, method(:close).to_proc)
+
+      if block_given?
+        begin
+          yield self
+        ensure
+          close
+        end
+      else
+        ObjectSpace.define_finalizer(self, method(:close).to_proc)
+      end
     end
 
     def call
@@ -127,8 +133,10 @@ class ReadArchiveTest < Test::Unit::TestCase
   end
 
   def test_read_from_stream_with_object
-    Archive.read_open_stream(TestReader.new) do |ar|
-      verify_content(ar)
+    TestReader.new do |reader|
+      Archive.read_open_stream(reader) do |ar|
+        verify_content(ar)
+      end
     end
   end
 
@@ -196,8 +204,8 @@ class ReadArchiveTest < Test::Unit::TestCase
         entry.pathname = 'chubby.dat'
         entry.mode = 0o666
         entry.filetype = Archive::Entry::FILE
-        entry.atime = Time.now.to_i
-        entry.mtime = Time.now.to_i
+        entry.atime = Time.now
+        entry.mtime = Time.now
         entry.size = content.bytesize
 
         ar.write_header(entry)

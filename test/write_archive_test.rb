@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'test_helper'
 require 'tmpdir'
 
 class WriteArchiveTest < Test::Unit::TestCase
@@ -46,11 +45,11 @@ class WriteArchiveTest < Test::Unit::TestCase
       arc.new_entry do |entry|
         entry.pathname = entry_path
         entry.mode = entry_mode
-        entry.filetype = Archive::Entry.const_get(entry_type.to_s.upcase)
+        entry.filetype = Archive::Entry.const_get(entry_type.upcase)
         entry.size = entry_content.size if entry_content
         entry.symlink = entry_content if entry_type == :symbolic_link
-        entry.atime = Time.now.to_i
-        entry.mtime = Time.now.to_i
+        entry.atime = Time.now
+        entry.mtime = Time.now
 
         arc.write_header(entry)
         arc.write_data(entry_content) if entry_type == :file

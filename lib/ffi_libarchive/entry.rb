@@ -19,6 +19,10 @@ module Archive
     DIRECTORY        = S_IFDIR
     CHARACTER_DEVICE = S_IFCHR # character special device
     FIFO             = S_IFIFO # named pipe (FIFO)
+
+    def self.file_types
+      @file_types ||= Hash[constants.reject { |k| k =~ /^S_/ }.map { |k| [k.downcase, const_get(k)] }]
+    end
     # endregion
 
     # @param [Pointer]
@@ -57,115 +61,186 @@ module Archive
     # @return [Pointer]
     attr_reader :entry
 
-    def atime
-      Time.at C.archive_entry_atime(entry)
+    class << self
+      protected
+
+      # @param [Symbol] api   API method
+      # @param [Hash] opts
+      # @option opts [#to_sym] :name  Method name
+      # @option opts [Boolean] :maybe Skip undefined method?
+      # @option opts [#call] :post   The result transformer
+      # @option opts [#call] :pre    The arguments processor
+      def attach_attribute(api, opts = {})
+        opts[:name] ||= api.to_s.sub(/^archive_entry_/, '').sub(/_is_.*$/, '\0?')
+
+        define_method(opts[:name].to_sym) do |*args|
+          opts[:pre].call(args) if opts[:pre].respond_to?(:call)
+
+          result = C.respond_to?(api) || !opts[:maybe] ? C.method(api).call(entry, *args) : nil
+          opts[:post].respond_to?(:call) ? opts[:post].call(result) : result
+        end
+      end
+
+      def proc_time_at
+        @proc_time_at ||= Time.method(:at)
+      end
+
+      def proc_2_args_to_i
+        @proc_2_args_to_i ||= proc { |args| args.fill(0, args.size..1).map!(&:to_i) }
+      end
+
+      def proc_is_nonzero
+        @proc_is_nonzero ||= 0.method(:!=)
+      end
     end
 
-    def atime=(time)
-      set_atime time, 0
+    # region Access time
+    # @!method atime
+    #   @return [Time]
+    attach_attribute :archive_entry_atime, post: proc_time_at
+
+    # @!method set_atime(time, nsec)
+    #   @param [Time, #to_i] time
+    #   @param [Integer, #to_i] nsec
+    attach_attribute :archive_entry_set_atime, pre: proc_2_args_to_i
+
+    # @!method atime=(time)
+    #   @param [Time, #to_i] time
+    alias atime= set_atime
+
+    # @!method atime_is_set?
+    #   @return [Boolean]
+    attach_attribute :archive_entry_atime_is_set, post: proc_is_nonzero
+
+    # @!method atime_nsec
+    #   @return [Integer] :long
+    attach_attribute :archive_entry_atime_nsec
+
+    # @!method unset_atime
+    attach_attribute :archive_entry_unset_atime
+    # endregion
+
+    # region Creation time
+    # @!method birthtime
+    #   @return [Time]
+    attach_attribute :archive_entry_birthtime, post: proc_time_at
+
+    # @!method set_birthtime(time, nsec)
+    #   @param [Time, #to_i] time
+    #   @param [Integer, #to_i] nsec
+    attach_attribute :archive_entry_set_birthtime, pre: proc_2_args_to_i
+
+    # @!method birthtime=(time)
+    #   @param [Time, #to_i] time
+    alias birthtime= set_birthtime
+
+    # @!method birthtime_is_set?
+    #   @return [Boolean]
+    attach_attribute :archive_entry_birthtime_is_set, post: proc_is_nonzero
+
+    # @!method birthtime_nsec
+    #   @return [Integer] :long
+    attach_attribute :archive_entry_birthtime_nsec
+
+    # @!method unset_birthtime
+    attach_attribute :archive_entry_unset_birthtime
+    # endregion
+
+    # region Change time
+    # @!method ctime
+    #   @return [Time]
+    attach_attribute :archive_entry_ctime, post: proc_time_at
+
+    # @!method set_ctime(time, nsec)
+    #   @param [Time, #to_i] time
+    #   @param [Integer, #to_i] nsec
+    attach_attribute :archive_entry_set_ctime, pre: proc_2_args_to_i
+
+    # @!method ctime=(time)
+    #   @param [Time, #to_i] time
+    alias ctime= set_ctime
+
+    # @!method ctime_is_set?
+    #   @return [Boolean]
+    attach_attribute :archive_entry_ctime_is_set, post: proc_is_nonzero
+
+    # @!method ctime_nsec
+    #   @return [Integer] :long
+    attach_attribute :archive_entry_ctime_nsec
+
+    # @!method unset_ctime
+    attach_attribute :archive_entry_unset_ctime
+    # endregion
+
+    # region File-type
+
+    # @!method filetype
+    #   @return [Integer] :mode_t
+    attach_attribute :archive_entry_filetype
+
+    # @!method filetype=(type)
+    #   @param [Integer, #to_s] type
+    attach_attribute(
+      :archive_entry_set_filetype,
+      name: 'filetype=',
+      pre: ->(args) { args.map! { |t| t.is_a?(Integer) ? t : self.class.const_get(t.to_s.upcase) } }
+    )
+
+    # @!method block_device?
+    #   @return [Boolean]
+    # @!method character_device?
+    #   @return [Boolean]
+    # @!method directory?
+    #   @return [Boolean]
+    # @!method fifo?
+    #   @return [Boolean]
+    # @!method file?
+    #   @return [Boolean]
+    # @!method socket?
+    #   @return [Boolean]
+    # @!method symbolic_link?
+    #   @return [Boolean]
+    file_types.each do |k, v|
+      define_method("#{k}?".to_sym) { (filetype & S_IFMT) == v }
     end
 
-    def set_atime(time, nsec)
-      C.archive_entry_set_atime(entry, time.to_i, nsec)
+    # @!method regular?
+    #   @return [Boolean]
+    alias regular? file?
+
+    # @!method block_special?
+    #   @return [Boolean]
+    alias block_special? block_device?
+
+    # @!method character_special?
+    #   @return [Boolean]
+    alias character_special? character_device?
+
+    # @return [Symbol]
+    def filetype_s
+      file_types.key(filetype & S_IFMT)
     end
 
-    def atime_is_set?
-      C.archive_entry_atime_is_set(entry) != 0
-    end
+    # endregion
 
-    def atime_nsec
-      C.archive_entry_atime_nsec(entry)
-    end
+    # region Attribute copying
 
-    def birthtime
-      Time.at C.archive_entry_birthtime(entry)
-    end
+    # @!method copy_fflags_text(fflags_text)
+    #   @param [String] fflags_text
+    #   @return [String]  Invalid token string, or NULL if success
+    attach_attribute :archive_entry_copy_fflags_text
 
-    def birthtime=(time)
-      set_birthtime time, 0
-    end
+    # @!method copy_gname(gname)
+    #   @param [String] gname
+    attach_attribute :archive_entry_copy_gname
 
-    def set_birthtime(time, nsec)
-      C.archive_entry_set_birthtime(entry, time.to_i, nsec)
-    end
+    # @!method copy_hardlink(lnk)
+    #   @param [String] lnk
+    attach_attribute :archive_entry_copy_hardlink
 
-    def birthtime_is_set?
-      C.archive_entry_birthtime_is_set(entry) != 0
-    end
-
-    def birthtime_nsec
-      C.archive_entry_birthtime_nsec(entry)
-    end
-
-    def ctime
-      Time.at C.archive_entry_ctime(entry)
-    end
-
-    def ctime=(time)
-      set_ctime time, 0
-    end
-
-    def set_ctime(time, nsec)
-      C.archive_entry_set_ctime(entry, time.to_i, nsec)
-    end
-
-    def ctime_is_set?
-      C.archive_entry_ctime_is_set(entry) != 0
-    end
-
-    def ctime_nsec
-      C.archive_entry_ctime_nsec(entry)
-    end
-
-    def block_device?
-      filetype & S_IFMT == S_IFBLK
-    end
-
-    def character_device?
-      filetype & S_IFMT == S_IFCHR
-    end
-
-    def directory?
-      filetype & S_IFMT == S_IFDIR
-    end
-
-    def fifo?
-      filetype & S_IFMT == S_IFIFO
-    end
-
-    def regular?
-      filetype & S_IFMT == S_IFREG
-    end
-
-    alias file? regular?
-
-    def socket?
-      filetype & S_IFMT == S_IFSOCK
-    end
-
-    def symbolic_link?
-      filetype & S_IFMT == S_IFLNK
-    end
-
-    def copy_fflags_text(fflags_text)
-      C.archive_entry_copy_fflags_text(entry, fflags_text)
-      nil
-    end
-
-    def copy_gname(gname)
-      C.archive_entry_copy_gname(entry, gname)
-      nil
-    end
-
-    def copy_hardlink(lnk)
-      C.archive_entry_copy_hardlink(entry, lnk)
-      nil
-    end
-
-    def copy_link(lnk)
-      C.archive_entry_copy_link(entry, lnk)
-      nil
-    end
+    # @!method copy_link(lnk)
+    #   @param [String] lnk
+    attach_attribute :archive_entry_copy_link
 
     def copy_lstat(filename)
       # TODO: get this work without ffi-inliner
@@ -185,15 +260,13 @@ module Archive
       end
     end
 
-    def copy_pathname(file_name)
-      C.archive_entry_copy_pathname(entry, file_name)
-      nil
-    end
+    # @!method copy_pathname(file_name)
+    #   @param [String] file_name
+    attach_attribute :archive_entry_copy_pathname
 
-    def copy_sourcepath(path)
-      C.archive_entry_copy_sourcepath(entry, path)
-      nil
-    end
+    # @!method copy_sourcepath(path)
+    #   @param [String] path
+    attach_attribute :archive_entry_copy_sourcepath
 
     def copy_stat(filename)
       # TODO: get this work without ffi-inliner
@@ -213,249 +286,272 @@ module Archive
       end
     end
 
-    def copy_symlink(slnk)
-      C.archive_entry_copy_symlink(entry, slnk)
-      nil
-    end
+    # @!method copy_symlink(lnk)
+    #   @param [String] lnk
+    attach_attribute :archive_entry_copy_symlink
 
-    def copy_uname(uname)
-      C.archive_entry_copy_uname(entry, uname)
-      nil
-    end
+    # @!method copy_uname(uname)
+    #   @param [String] uname
+    attach_attribute :archive_entry_copy_uname
 
-    def dev
-      C.archive_entry_dev(entry)
-    end
+    # endregion
 
-    def dev=(dev)
-      C.archive_entry_set_dev(entry, dev)
-    end
+    # region Device number
+    # @!method dev
+    #   @return [Integer] :dev_t
+    attach_attribute :archive_entry_dev
 
-    def devmajor
-      C.archive_entry_devmajor(entry)
-    end
+    # @!method dev=(dev)
+    #   @param [Integer] dev
+    attach_attribute :archive_entry_set_dev, name: 'dev='
 
-    def devmajor=(dev)
-      C.archive_entry_set_devmajor(entry, dev)
-    end
+    # @!method devmajor
+    #   @return [Integer] :dev_t
+    attach_attribute :archive_entry_devmajor
 
-    def devminor
-      C.archive_entry_devminor(entry)
-    end
+    # @!method devmajor=(dev)
+    #   @param [Integer] dev
+    attach_attribute :archive_entry_set_devmajor, name: 'devmajor='
 
-    def devminor=(dev)
-      C.archive_entry_set_devminor(entry, dev)
-    end
+    # @!method devminor
+    #   @return [Integer] :dev_t
+    attach_attribute :archive_entry_devminor
 
+    # @!method devminor=(dev)
+    #   @param [Integer] dev
+    attach_attribute :archive_entry_set_devminor, name: 'devminor='
+    # endregion
+
+    # region File flags/attributes (see #lsattr)
+    # @return [Array<Integer>]  of [:set, :clear]
     def fflags
-      set = FFI::MemoryPointer.new :long
-      clear = FFI::MemoryPointer.new :long
+      set = FFI::MemoryPointer.new :ulong
+      clear = FFI::MemoryPointer.new :ulong
       C.archive_entry_fflags(entry, set, clear)
 
-      [set.read(:long), clear.read(:long)]
+      [set.read(:ulong), clear.read(:ulong)]
     end
 
-    def fflags_text
-      C.archive_entry_fflags_text(entry)
-    end
+    # @!method set_fflags(set, clear)
+    #   @param [Integer] set
+    #   @param [Integer] clear
+    attach_attribute :archive_entry_set_fflags
 
-    def filetype
-      C.archive_entry_filetype(entry)
-    end
+    # @!method fflags_text
+    #   @return [String]
+    attach_attribute :archive_entry_fflags_text
+    # endregion
 
-    def filetype=(type)
-      type = self.class.const_get(type.to_s.upcase) unless type.is_a?(Integer)
-      C.archive_entry_set_filetype(entry, type)
-    end
+    # region Group ownership
+    # @!method gid
+    #   @return [Integer] :int64_t
+    attach_attribute :archive_entry_gid
 
-    def gid
-      C.archive_entry_gid(entry)
-    end
+    # @!method gid=(gid)
+    #   @param [Integer] gid
+    attach_attribute :archive_entry_set_gid, name: 'gid='
 
-    def gid=(gid)
-      C.archive_entry_set_gid(entry, gid)
-    end
+    # @!method gname
+    #   @return [String]
+    attach_attribute :archive_entry_gname
 
-    def gname
-      C.archive_entry_gname(entry)
-    end
+    # @!method gname=(gname)
+    #   @param [String] gname
+    attach_attribute :archive_entry_set_gname, name: 'gname='
+    # endregion
 
-    def gname=(gname)
-      C.archive_entry_set_gname(entry, gname)
-    end
+    # region Links
 
-    def hardlink
-      C.archive_entry_hardlink(entry)
-    end
+    # @!method hardlink
+    #   @return [String]
+    attach_attribute :archive_entry_hardlink
 
-    def hardlink=(lnk)
-      C.archive_entry_set_hardlink(entry, lnk)
-    end
+    # @!method hardlink=(lnk)
+    #   @param [String] lnk
+    attach_attribute :archive_entry_set_hardlink, name: 'hardlink='
 
-    def ino
-      C.archive_entry_ino(entry)
-    end
+    # @!method link=(lnk)
+    #   @param [String] lnk
+    attach_attribute :archive_entry_set_link, name: 'link='
 
-    def ino=(ino)
-      C.archive_entry_set_ino(entry, ino)
-    end
+    # @!method symlink
+    #   @return [String]
+    attach_attribute :archive_entry_symlink
 
-    def link=(lnk)
-      C.archive_entry_set_link(entry, lnk)
-    end
+    # @!method symlink=(lnk)
+    #   @param [String] lnk
+    attach_attribute :archive_entry_set_symlink, name: 'symlink='
 
-    def mode
-      C.archive_entry_mode(entry)
-    end
+    # endregion
 
-    def mode=(mode)
-      C.archive_entry_set_mode(entry, mode)
-    end
+    # @!method ino
+    #   @return [Integer] :int64_t of inode number
+    attach_attribute :archive_entry_ino
 
-    def mtime
-      Time.at C.archive_entry_mtime(entry)
-    end
+    # @!method ino=(ino)
+    #   @param [String] ino inode number
+    attach_attribute :archive_entry_set_ino, name: 'ino='
 
-    def mtime=(time)
-      set_mtime time, 0
-    end
+    # region File permissions
 
-    def set_mtime(time, nsec)
-      C.archive_entry_set_mtime(entry, time.to_i, nsec)
-    end
+    # @!method mode
+    #   @return [Integer] :mode_t
+    attach_attribute :archive_entry_mode
 
-    def mtime_is_set?
-      C.archive_entry_mtime_is_set(entry) != 0
-    end
+    # @!method mode=(mode)
+    #   @param [Integer] mode File protection (see #filetype)
+    attach_attribute :archive_entry_set_mode, name: 'mode='
 
-    def mtime_nsec
-      C.archive_entry_mtime_nsec(entry)
-    end
+    # @!method perm
+    #   @return [Integer] :mode_t
+    attach_attribute :archive_entry_perm
 
-    def nlink
-      C.archive_entry_nlink(entry)
-    end
+    # @!method perm=(perm)
+    #   @param [Integer] perm of :mode_t
+    attach_attribute :archive_entry_set_perm, name: 'perm='
 
-    def nlink=(nlink)
-      C.archive_entry_set_nlink(entry, nlink)
-    end
+    # @!method strmode
+    #   @return [String]
+    attach_attribute :archive_entry_strmode
 
-    def pathname
-      C.archive_entry_pathname(entry)
-    end
+    # endregion
 
-    def pathname=(path)
-      C.archive_entry_set_pathname(entry, path)
-    end
+    # region Modification time
+    # @!method mtime
+    #   @return [Time]
+    attach_attribute :archive_entry_mtime, post: proc_time_at
 
-    def perm=(perm)
-      C.archive_entry_set_perm(entry, perm)
-    end
+    # @!method set_mtime(time, nsec)
+    #   @param [Time, #to_i] time
+    #   @param [Integer, #to_i] nsec
+    attach_attribute :archive_entry_set_mtime, pre: proc_2_args_to_i
 
-    def rdev
-      C.archive_entry_rdev(entry)
-    end
+    # @!method mtime=(time)
+    #   @param [Time, #to_i] time
+    alias mtime= set_mtime
 
-    def rdev=(dev)
-      C.archive_entry_set_rdev(entry, dev)
-    end
+    # @!method mtime_is_set?
+    #   @return [Boolean]
+    attach_attribute :archive_entry_mtime_is_set, post: proc_is_nonzero
 
-    def rdevmajor
-      C.archive_entry_rdevmajor(entry)
-    end
+    # @!method mtime_nsec
+    #   @return [Integer] :long
+    attach_attribute :archive_entry_mtime_nsec
 
-    def rdevmajor=(dev)
-      C.archive_entry_set_rdevmajor(entry, dev)
-    end
+    # @!method unset_mtime
+    attach_attribute :archive_entry_unset_mtime
+    # endregion
 
-    def rdevminor
-      C.archive_entry_rdevminor(entry)
-    end
+    # @!method nlink
+    #   @return [Integer] :uint
+    attach_attribute :archive_entry_nlink
 
-    def rdevminor=(dev)
-      C.archive_entry_set_rdevminor(entry, dev)
-    end
+    # @!method nlink=(nlink)
+    #   @param [Integer] nlink  Number of hard links / files in a directory
+    attach_attribute :archive_entry_set_nlink, name: 'nlink='
 
-    def set_fflags(set, clear)
-      C.archive_entry_set_fflags(entry, set, clear)
-    end
+    # region File path
+    # @!method pathname
+    #   @return [String]
+    attach_attribute :archive_entry_pathname
 
-    def size
-      C.archive_entry_size(entry)
-    end
+    # @!method pathname=(path)
+    #   @param [String] path
+    attach_attribute :archive_entry_set_pathname, name: 'pathname='
 
-    def size=(size)
-      C.archive_entry_set_size(entry, size)
-    end
+    # @!method pathname_utf8
+    #   @return [String]
+    attach_attribute :archive_entry_pathname_utf8, maybe: true
 
-    def size_is_set?
-      C.archive_entry_size_is_set(entry) != 0
-    end
+    # @!method pathname_utf8=(path)
+    #   @param [String] path
+    attach_attribute :archive_entry_set_pathname_utf8, name: 'pathname_utf8='
+    # endregion
 
-    def sourcepath
-      C.archive_entry_sourcepath(entry)
-    end
+    # region Root device ID (if special?)
+    # @!method rdev
+    #   @return [Integer] :dev_t
+    attach_attribute :archive_entry_rdev
 
-    def strmode
-      C.archive_entry_strmode(entry)
-    end
+    # @!method rdev=(dev)
+    #   @param [Integer] dev
+    attach_attribute :archive_entry_set_rdev, name: 'rdev='
 
-    def symlink
-      C.archive_entry_symlink(entry)
-    end
+    # @!method rdevmajor
+    #   @return [Integer] :dev_t
+    attach_attribute :archive_entry_rdevmajor
 
-    def symlink=(slnk)
-      C.archive_entry_set_symlink(entry, slnk)
-    end
+    # @!method rdevmajor=(dev)
+    #   @param [Integer] dev
+    attach_attribute :archive_entry_set_rdevmajor, name: 'rdevmajor='
 
-    def uid
-      C.archive_entry_uid(entry)
-    end
+    # @!method rdevminor
+    #   @return [Integer] :dev_t
+    attach_attribute :archive_entry_rdevminor
 
-    def uid=(uid)
-      C.archive_entry_set_uid(entry, uid)
-    end
+    # @!method rdevminor=(dev)
+    #   @param [Integer] dev
+    attach_attribute :archive_entry_set_rdevminor, name: 'rdevminor='
+    # endregion
 
-    def uname
-      C.archive_entry_uname(entry)
-    end
+    # region File size
 
-    def uname=(uname)
-      C.archive_entry_set_uname(entry, uname)
-    end
+    # @!method size
+    #   @return [Integer] :int64_t
+    attach_attribute :archive_entry_size
 
-    def unset_atime
-      C.archive_entry_unset_atime(entry)
-    end
+    # @!method size=(size)
+    #   @param [Integer] size
+    attach_attribute :archive_entry_set_size, name: 'size='
 
-    def unset_birthtime
-      C.archive_entry_unset_birthtime(entry)
-    end
+    # @!method size_is_set?
+    #   @return [Boolean]
+    attach_attribute :archive_entry_size_is_set, post: proc_is_nonzero
 
-    def unset_ctime
-      C.archive_entry_unset_ctime(entry)
-    end
+    # @!method unset_size
+    attach_attribute :archive_entry_unset_size
 
-    def unset_mtime
-      C.archive_entry_unset_mtime(entry)
-    end
+    # endregion
 
-    def unset_size
-      C.archive_entry_unset_size(entry)
-    end
+    # @!method sourcepath
+    #   @return [String]
+    attach_attribute :archive_entry_sourcepath
 
+    # region Ownership
+    # @!method uid
+    #   @return [Integer] :int64_t
+    attach_attribute :archive_entry_uid
+
+    # @!method uid=(uid)
+    #   @param [Integer] uid
+    attach_attribute :archive_entry_set_uid, name: 'uid='
+
+    # @!method uname
+    #   @return [String]
+    attach_attribute :archive_entry_uname
+
+    # @!method uname=(uname)
+    #   @param [String] uname
+    attach_attribute :archive_entry_set_uname, name: 'uname='
+    # endregion
+
+    # region Extended attributes
+
+    # @param [String] name
+    # @param [String] value
     def xattr_add_entry(name, value)
-      C.archive_entry_xattr_add_entry(entry, name, value, value.size)
+      value = value.to_s
+      C.archive_entry_xattr_add_entry(entry, name, FFI::MemoryPointer.from_string(value), value.bytesize)
     end
 
-    def xattr_clear
-      C.archive_entry_xattr_clear(entry)
-    end
+    # @!method xattr_clear
+    attach_attribute :archive_entry_xattr_clear
 
-    def xattr_count
-      C.archive_entry_xattr_count(entry)
-    end
+    # @!method xattr_count
+    #   @return [Integer]
+    attach_attribute :archive_entry_xattr_count
 
+    # @return [Array<String>] of [:name, :value]
     def xattr_next
       name = FFI::MemoryPointer.new :pointer
       value = FFI::MemoryPointer.new :pointer
@@ -463,20 +559,16 @@ module Archive
       return nil if C.archive_entry_xattr_next(entry, name, value, size) != C::OK
 
       # TODO: sometimes size.read(:size_t) could work
-      value_str =
-        if value.null?
-          nil
-        elsif size.null?
-          value.read_string_to_null
-        else
-          value.read_string_length(size.read(:size_t))
-        end
-
-      [name.null? ? nil : name.read_string_to_null, value_str]
+      [
+        name.null? ? nil : name.read_string_to_null,
+        value.null? ? nil : value.read_string_length(size.read(:size_t))
+      ]
     end
 
-    def xattr_reset
-      C.archive_entry_xattr_reset(entry)
-    end
+    # @!method xattr_reset
+    #   @return [Integer]
+    attach_attribute :archive_entry_xattr_reset
+
+    # endregion
   end
 end

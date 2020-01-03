@@ -114,8 +114,10 @@ module Archive
         len = 0
         loop do
           str = yield
-          n = str ? C.archive_write_data(archive, FFI::MemoryPointer.from_string(str), str.bytesize) : 0
-          break if n <= 0
+          n = str.is_a?(String) ? C.archive_write_data(archive, FFI::MemoryPointer.from_string(str), str.bytesize) : 0
+
+          raise Error, self if n < 0
+          break if n.zero?
 
           len += n
         end
@@ -125,7 +127,10 @@ module Archive
         str = args[0]
         raise ArgumentError, 'Data string is required' unless str
 
-        C.archive_write_data(archive, FFI::MemoryPointer.from_string(str), str.bytesize)
+        n = C.archive_write_data(archive, FFI::MemoryPointer.from_string(str), str.bytesize)
+        raise Error, self if n < 0
+
+        n
       end
     end
 
@@ -162,9 +167,7 @@ module Archive
     end
 
     def init_for_memory(memory)
-      # rubocop:disable Style/NumericPredicate
       C.archive_write_set_bytes_in_last_block(archive, 1) if C.archive_write_get_bytes_in_last_block(archive) < 0
-      # rubocop:enable Style/NumericPredicate
 
       write_callback = proc do |_ar, _client_data, buffer, length|
         memory << buffer.read_bytes(length)

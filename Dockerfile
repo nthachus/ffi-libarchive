@@ -14,7 +14,7 @@ ENV LANG C.UTF-8
 
 # Install dependencies
 COPY Gemfile *.gemspec ./
-RUN bundle config --local path vendor/bundle && bundle install \
+RUN bundle install --path vendor/bundle --without coverage \
  && rm -rf ~/.bundle ~/.gem
 
 COPY . .

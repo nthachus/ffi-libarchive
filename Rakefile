@@ -14,6 +14,8 @@ Rake::TestTask.new(:test) do |t|
   t.libs << 'test'
   t.libs << 'lib'
   t.test_files = FileList['test/**/*_test.rb']
+  # Ensure SimpleCov is loaded before the test files
+  t.ruby_opts << '-r "./test/test_helper"'
 end
 
 task default: [:rubocop, :test]
