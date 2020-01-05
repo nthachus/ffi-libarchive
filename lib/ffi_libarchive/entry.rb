@@ -92,6 +92,14 @@ module Archive
       def proc_is_nonzero
         @proc_is_nonzero ||= 0.method(:!=)
       end
+
+      def proc_read_wide_string
+        @proc_read_wide_string ||= Utils.method(:read_wide_string)
+      end
+
+      def proc_string_arg_to_wide
+        @proc_string_arg_to_wide ||= proc { |args| args.map! { |s| Utils.to_wide_string s } }
+      end
     end
 
     # region Access time
@@ -218,29 +226,16 @@ module Archive
 
     # @return [Symbol]
     def filetype_s
-      file_types.key(filetype & S_IFMT)
+      self.class.file_types.key(filetype & S_IFMT)
     end
 
     # endregion
 
-    # region Attribute copying
+    # region File status
 
-    # @!method copy_fflags_text(fflags_text)
-    #   @param [String] fflags_text
-    #   @return [String]  Invalid token string, or NULL if success
-    attach_attribute :archive_entry_copy_fflags_text
-
-    # @!method copy_gname(gname)
-    #   @param [String] gname
-    attach_attribute :archive_entry_copy_gname
-
-    # @!method copy_hardlink(lnk)
-    #   @param [String] lnk
-    attach_attribute :archive_entry_copy_hardlink
-
-    # @!method copy_link(lnk)
-    #   @param [String] lnk
-    attach_attribute :archive_entry_copy_link
+    # @!method stat
+    #   @return [Pointer] of struct stat*
+    attach_attribute :archive_entry_stat
 
     def copy_lstat(filename)
       # TODO: get this work without ffi-inliner
@@ -260,14 +255,6 @@ module Archive
       end
     end
 
-    # @!method copy_pathname(file_name)
-    #   @param [String] file_name
-    attach_attribute :archive_entry_copy_pathname
-
-    # @!method copy_sourcepath(path)
-    #   @param [String] path
-    attach_attribute :archive_entry_copy_sourcepath
-
     def copy_stat(filename)
       # TODO: get this work without ffi-inliner
       begin
@@ -285,14 +272,6 @@ module Archive
         Archive::Stat.ffi_libarchive_free_stat(stat)
       end
     end
-
-    # @!method copy_symlink(lnk)
-    #   @param [String] lnk
-    attach_attribute :archive_entry_copy_symlink
-
-    # @!method copy_uname(uname)
-    #   @param [String] uname
-    attach_attribute :archive_entry_copy_uname
 
     # endregion
 
@@ -340,6 +319,15 @@ module Archive
     # @!method fflags_text
     #   @return [String]
     attach_attribute :archive_entry_fflags_text
+
+    # @!method copy_fflags_text(fflags_text)
+    #   @param [String] fflags_text
+    #   @return [String]  Invalid token string, or NULL if success
+    attach_attribute :archive_entry_copy_fflags_text
+
+    # @!method fflags_text=(fflags_text)
+    #   @param [String] fflags_text
+    alias fflags_text= copy_fflags_text
     # endregion
 
     # region Group ownership
@@ -358,6 +346,10 @@ module Archive
     # @!method gname=(gname)
     #   @param [String] gname
     attach_attribute :archive_entry_set_gname, name: 'gname='
+
+    # @!method copy_gname(gname)
+    #   @param [String] gname
+    attach_attribute :archive_entry_copy_gname
     # endregion
 
     # region Links
@@ -370,9 +362,17 @@ module Archive
     #   @param [String] lnk
     attach_attribute :archive_entry_set_hardlink, name: 'hardlink='
 
+    # @!method copy_hardlink(lnk)
+    #   @param [String] lnk
+    attach_attribute :archive_entry_copy_hardlink
+
     # @!method link=(lnk)
     #   @param [String] lnk
     attach_attribute :archive_entry_set_link, name: 'link='
+
+    # @!method copy_link(lnk)
+    #   @param [String] lnk
+    attach_attribute :archive_entry_copy_link
 
     # @!method symlink
     #   @return [String]
@@ -381,6 +381,10 @@ module Archive
     # @!method symlink=(lnk)
     #   @param [String] lnk
     attach_attribute :archive_entry_set_symlink, name: 'symlink='
+
+    # @!method copy_symlink(lnk)
+    #   @param [String] lnk
+    attach_attribute :archive_entry_copy_symlink
 
     # endregion
 
@@ -459,13 +463,17 @@ module Archive
     #   @param [String] path
     attach_attribute :archive_entry_set_pathname, name: 'pathname='
 
-    # @!method pathname_utf8
+    # @!method pathname_w
     #   @return [String]
-    attach_attribute :archive_entry_pathname_utf8, maybe: true
+    attach_attribute :archive_entry_pathname_w, maybe: true, post: proc_read_wide_string
 
-    # @!method pathname_utf8=(path)
+    # @!method pathname_w=(path)
     #   @param [String] path
-    attach_attribute :archive_entry_set_pathname_utf8, name: 'pathname_utf8='
+    attach_attribute :archive_entry_copy_pathname_w, name: 'pathname_w=', pre: proc_string_arg_to_wide
+
+    # @!method copy_pathname(file_name)
+    #   @param [String] file_name
+    attach_attribute :archive_entry_copy_pathname
     # endregion
 
     # region Root device ID (if special?)
@@ -517,6 +525,14 @@ module Archive
     #   @return [String]
     attach_attribute :archive_entry_sourcepath
 
+    # @!method copy_sourcepath(path)
+    #   @param [String] path
+    attach_attribute :archive_entry_copy_sourcepath
+
+    # @!method sourcepath=(path)
+    #   @param [String] path
+    alias sourcepath= copy_sourcepath
+
     # region Ownership
     # @!method uid
     #   @return [Integer] :int64_t
@@ -533,6 +549,10 @@ module Archive
     # @!method uname=(uname)
     #   @param [String] uname
     attach_attribute :archive_entry_set_uname, name: 'uname='
+
+    # @!method copy_uname(uname)
+    #   @param [String] uname
+    attach_attribute :archive_entry_copy_uname
     # endregion
 
     # region Extended attributes

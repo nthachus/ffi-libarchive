@@ -164,7 +164,7 @@ class ReadArchiveTest < Test::Unit::TestCase
   end
 
   def test_read_from_stream_with_skip_seek_object
-    expect_pathname, expect_type, _, expect_content = CONTENT_SPEC[6]
+    expect_pathname, expect_type, expect_mode, expect_content = CONTENT_SPEC[6]
     verified = false
     reader = SkipNSeekTestReader.new
 
@@ -173,10 +173,9 @@ class ReadArchiveTest < Test::Unit::TestCase
         next unless entry.pathname == expect_pathname
 
         verified = true
-
-        assert_equal expect_pathname, entry.pathname
         assert entry.send("#{expect_type}?")
-        # Skip verifying file mode; Zip files doesn't store it.
+        # Zip files may not store file mode.
+        assert_equal expect_mode, (entry.mode & 0o7777)
 
         assert entry.file?
         content = ar.read_data(1024)
@@ -223,6 +222,10 @@ class ReadArchiveTest < Test::Unit::TestCase
       assert_equal expect_pathname, entry.pathname
       assert entry.send("#{expect_type}?")
       assert_equal expect_mode, (entry.mode & 0o7777)
+
+      assert_equal expect_type, entry.filetype_s
+      assert_equal 'tobias', entry.uname
+      assert_equal 1000, entry.gid
 
       if entry.symbolic_link?
         assert_equal expect_content, entry.symlink

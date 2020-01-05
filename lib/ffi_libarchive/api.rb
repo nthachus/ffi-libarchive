@@ -190,15 +190,20 @@ module Archive
     attach_function :archive_entry_fflags, [:pointer, :pointer, :pointer], :void
     attach_function :archive_entry_set_fflags, [:pointer, :ulong, :ulong], :void
     attach_function :archive_entry_fflags_text, [:pointer], :string
+    attach_function :archive_entry_copy_fflags_text, [:pointer, :string], :string
 
     attach_function :archive_entry_gid, [:pointer], :int64_t
     attach_function :archive_entry_set_gid, [:pointer, :int64_t], :void
     attach_function :archive_entry_gname, [:pointer], :string
     attach_function :archive_entry_set_gname, [:pointer, :string], :void
+    attach_function :archive_entry_copy_gname, [:pointer, :string], :void
 
     attach_function :archive_entry_hardlink, [:pointer], :string
     attach_function :archive_entry_set_hardlink, [:pointer, :string], :void
+    attach_function :archive_entry_copy_hardlink, [:pointer, :string], :void
     attach_function :archive_entry_set_link, [:pointer, :string], :void
+    attach_function :archive_entry_copy_link, [:pointer, :string], :void
+
     attach_function :archive_entry_ino, [:pointer], :int64_t
     attach_function :archive_entry_set_ino, [:pointer, :int64_t], :void
 
@@ -206,13 +211,16 @@ module Archive
     attach_function :archive_entry_set_mode, [:pointer, :mode_t], :void
     attach_function :archive_entry_perm, [:pointer], :mode_t
     attach_function :archive_entry_set_perm, [:pointer, :mode_t], :void
+    attach_function :archive_entry_strmode, [:pointer], :string
+
     attach_function :archive_entry_nlink, [:pointer], :uint
     attach_function :archive_entry_set_nlink, [:pointer, :uint], :void
 
     attach_function :archive_entry_pathname, [:pointer], :string
     attach_function :archive_entry_set_pathname, [:pointer, :string], :void
-    attach_function_maybe :archive_entry_pathname_utf8, [:pointer], :string
-    attach_function_maybe :archive_entry_set_pathname_utf8, [:pointer, :string], :void
+    attach_function_maybe :archive_entry_pathname_w, [:pointer], :pointer
+    attach_function_maybe :archive_entry_copy_pathname_w, [:pointer, :buffer_in], :void
+    attach_function :archive_entry_copy_pathname, [:pointer, :string], :void
 
     attach_function :archive_entry_rdev, [:pointer], :dev_t
     attach_function :archive_entry_set_rdev, [:pointer, :dev_t], :void
@@ -227,24 +235,20 @@ module Archive
     attach_function_maybe :archive_entry_size_is_set, [:pointer], :int
 
     attach_function :archive_entry_sourcepath, [:pointer], :string
-    attach_function :archive_entry_strmode, [:pointer], :string
+    attach_function :archive_entry_copy_sourcepath, [:pointer, :string], :void
+
     attach_function :archive_entry_symlink, [:pointer], :string
     attach_function :archive_entry_set_symlink, [:pointer, :string], :void
+    attach_function :archive_entry_copy_symlink, [:pointer, :string], :void
 
     attach_function :archive_entry_uid, [:pointer], :int64_t
     attach_function :archive_entry_set_uid, [:pointer, :int64_t], :void
     attach_function :archive_entry_uname, [:pointer], :string
     attach_function :archive_entry_set_uname, [:pointer, :string], :void
-
-    attach_function :archive_entry_copy_stat, [:pointer, :pointer], :void
-    attach_function :archive_entry_copy_fflags_text, [:pointer, :string], :string
-    attach_function :archive_entry_copy_gname, [:pointer, :string], :void
     attach_function :archive_entry_copy_uname, [:pointer, :string], :void
-    attach_function :archive_entry_copy_hardlink, [:pointer, :string], :void
-    attach_function :archive_entry_copy_link, [:pointer, :string], :void
-    attach_function :archive_entry_copy_symlink, [:pointer, :string], :void
-    attach_function :archive_entry_copy_sourcepath, [:pointer, :string], :void
-    attach_function :archive_entry_copy_pathname, [:pointer, :string], :void
+
+    attach_function :archive_entry_stat, [:pointer], :pointer
+    attach_function :archive_entry_copy_stat, [:pointer, :pointer], :void
 
     attach_function :archive_entry_xattr_clear, [:pointer], :void
     attach_function :archive_entry_xattr_add_entry, [:pointer, :string, :pointer, :size_t], :void

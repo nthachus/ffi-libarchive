@@ -17,10 +17,19 @@ Style/PercentLiteralDelimiters:
   PreferredDelimiters:
     '%w': '[]'
 
+Style/Encoding:
+  Enabled: false
+
 Style/SymbolArray:
   Enabled: false
 
 # TODO: Remove below!
+Style/NumericPredicate:
+  Enabled: false
+
+Style/EmptyLiteral:
+  Enabled: false
+
 Metrics/AbcSize:
   Max: 35
 
@@ -31,10 +40,10 @@ Metrics/PerceivedComplexity:
   Max: 14
 
 Metrics/MethodLength:
-  Max: 21
+  Max: 22
 
 Metrics/ClassLength:
-  Max: 210
+  Max: 220
 
 Metrics/ModuleLength:
   Max: 220
