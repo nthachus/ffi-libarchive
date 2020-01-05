@@ -2,6 +2,8 @@
 
 This library provides Ruby FFI bindings to the well-known [libarchive library](https://www.libarchive.org/).
 
+**NOTE** This gem is refactored / optimized version of [ffi-libarchive](https://github.com/chef/ffi-libarchive) with more tests to cover almost use-cases.
+
 ## Installation
 
 Ensure that you have `libarchive` installed.

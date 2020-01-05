@@ -107,13 +107,11 @@ module Archive
     #   @return [Time]
     attach_attribute :archive_entry_atime, post: proc_time_at
 
-    # @!method set_atime(time, nsec)
+    # @!method set_atime(time, nsec = 0)
     #   @param [Time, #to_i] time
     #   @param [Integer, #to_i] nsec
     attach_attribute :archive_entry_set_atime, pre: proc_2_args_to_i
 
-    # @!method atime=(time)
-    #   @param [Time, #to_i] time
     alias atime= set_atime
 
     # @!method atime_is_set?
@@ -133,13 +131,11 @@ module Archive
     #   @return [Time]
     attach_attribute :archive_entry_birthtime, post: proc_time_at
 
-    # @!method set_birthtime(time, nsec)
+    # @!method set_birthtime(time, nsec = 0)
     #   @param [Time, #to_i] time
     #   @param [Integer, #to_i] nsec
     attach_attribute :archive_entry_set_birthtime, pre: proc_2_args_to_i
 
-    # @!method birthtime=(time)
-    #   @param [Time, #to_i] time
     alias birthtime= set_birthtime
 
     # @!method birthtime_is_set?
@@ -159,13 +155,11 @@ module Archive
     #   @return [Time]
     attach_attribute :archive_entry_ctime, post: proc_time_at
 
-    # @!method set_ctime(time, nsec)
+    # @!method set_ctime(time, nsec = 0)
     #   @param [Time, #to_i] time
     #   @param [Integer, #to_i] nsec
     attach_attribute :archive_entry_set_ctime, pre: proc_2_args_to_i
 
-    # @!method ctime=(time)
-    #   @param [Time, #to_i] time
     alias ctime= set_ctime
 
     # @!method ctime_is_set?
@@ -212,16 +206,8 @@ module Archive
       define_method("#{k}?".to_sym) { (filetype & S_IFMT) == v }
     end
 
-    # @!method regular?
-    #   @return [Boolean]
     alias regular? file?
-
-    # @!method block_special?
-    #   @return [Boolean]
     alias block_special? block_device?
-
-    # @!method character_special?
-    #   @return [Boolean]
     alias character_special? character_device?
 
     # @return [Symbol]
@@ -325,8 +311,6 @@ module Archive
     #   @return [String]  Invalid token string, or NULL if success
     attach_attribute :archive_entry_copy_fflags_text
 
-    # @!method fflags_text=(fflags_text)
-    #   @param [String] fflags_text
     alias fflags_text= copy_fflags_text
     # endregion
 
@@ -425,13 +409,11 @@ module Archive
     #   @return [Time]
     attach_attribute :archive_entry_mtime, post: proc_time_at
 
-    # @!method set_mtime(time, nsec)
+    # @!method set_mtime(time, nsec = 0)
     #   @param [Time, #to_i] time
     #   @param [Integer, #to_i] nsec
     attach_attribute :archive_entry_set_mtime, pre: proc_2_args_to_i
 
-    # @!method mtime=(time)
-    #   @param [Time, #to_i] time
     alias mtime= set_mtime
 
     # @!method mtime_is_set?
@@ -529,8 +511,6 @@ module Archive
     #   @param [String] path
     attach_attribute :archive_entry_copy_sourcepath
 
-    # @!method sourcepath=(path)
-    #   @param [String] path
     alias sourcepath= copy_sourcepath
 
     # region Ownership

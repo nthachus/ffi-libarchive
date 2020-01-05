@@ -12,7 +12,7 @@ class ReadUnicodeTest < Test::Unit::TestCase
     ['a中Я/', :directory, 0o755, 1_578_226_739]
   ].freeze
 
-  def test_read_7zip_from_file
+  def test_read_7zip_with_unicode_contents
     Archive.read_open_filename(fixture_path('test.7z')) do |ar|
       verify_content(ar)
     end
@@ -20,6 +20,7 @@ class ReadUnicodeTest < Test::Unit::TestCase
 
   private
 
+  # @param [Archive::Reader] arc
   def verify_content(arc)
     content_spec_idx = 0
 

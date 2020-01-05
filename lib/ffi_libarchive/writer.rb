@@ -144,14 +144,15 @@ module Archive
     def init_compression(compression)
       raise ArgumentError, 'Missing :compression argument' if !compression || compression.to_s.empty?
 
-      begin
+      if !compression.is_a?(String) && C.respond_to?(:archive_write_add_filter)
+        compression = Archive.const_get("FILTER_#{compression}".upcase) unless compression.is_a?(Integer)
+        raise Error, self if C.archive_write_add_filter(archive, compression) != C::OK
+      else
         unless compression.is_a?(Integer) || compression.is_a?(String)
           compression = Archive.const_get("COMPRESSION_#{compression}".upcase)
         end
+
         raise Error, self if C.archive_write_set_compression(archive, compression) != C::OK
-      rescue StandardError
-        compression = Archive.const_get("FILTER_#{compression}".upcase) unless compression.is_a?(Integer)
-        raise Error, self if C.archive_write_add_filter(archive, compression) != C::OK
       end
     end
 

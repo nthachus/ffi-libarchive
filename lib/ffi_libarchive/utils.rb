@@ -87,6 +87,7 @@ module Archive
       # @return [Integer]
       def change_cwd(dir)
         if block_given?
+          # @type [String]
           cwd = Dir.getwd
           change_cwd dir
 
@@ -105,6 +106,7 @@ module Archive
       # @return [String]
       def error_message(errno = nil)
         errno ||= FFI.errno
+        # noinspection RubyYardReturnMatch
         errno ? LibC.strerror(errno) : nil
       end
     end

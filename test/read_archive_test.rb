@@ -64,6 +64,7 @@ class ReadArchiveTest < Test::Unit::TestCase
     Dir.mktmpdir do |dir|
       Archive.read_open_filename(fixture_path('test.tar.gz')) do |ar|
         Archive::Utils.change_cwd(dir) do
+          # @type [Archive::Entry] e
           ar.each_entry do |e|
             next if e.symbolic_link? && FFI::Platform.windows?
 
@@ -81,6 +82,7 @@ class ReadArchiveTest < Test::Unit::TestCase
     Dir.mktmpdir do |dir|
       Archive.read_open_filename(fixture_path('test.tar.gz')) do |ar|
         Archive::Utils.change_cwd(dir) do
+          # @type [Archive::Entry] e
           ar.each_entry do |e|
             next if e.symbolic_link? && FFI::Platform.windows?
 
@@ -198,6 +200,7 @@ class ReadArchiveTest < Test::Unit::TestCase
   # @param [String] filename
   # @param [String] content
   def write_content(filename, content)
+    # @type [Archive::Writer] ar
     Archive.write_open_filename(filename, Archive::COMPRESSION_BZIP2, Archive::FORMAT_TAR) do |ar|
       ar.new_entry do |entry|
         entry.pathname = 'chubby.dat'
@@ -213,6 +216,7 @@ class ReadArchiveTest < Test::Unit::TestCase
     end
   end
 
+  # @param [Archive::Reader] arc
   def verify_content(arc)
     content_spec_idx = 0
 

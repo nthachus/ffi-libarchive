@@ -34,51 +34,51 @@ module Archive
     attach_function :archive_read_set_seek_callback, [:pointer, :archive_seek_callback], :int
 
     # @deprecated 4 methods below are unused
-    attach_function_maybe :archive_read_set_format, [:pointer, :int], :int
-    attach_function_maybe :archive_read_append_filter, [:pointer, :int], :int
-    attach_function_maybe :archive_read_append_filter_program, [:pointer, :string], :int
-    attach_function_maybe :archive_read_append_filter_program_signature, [:pointer, :string, :pointer, :size_t], :int
+    # attach_function_maybe :archive_read_set_format, [:pointer, :int], :int
+    # attach_function_maybe :archive_read_append_filter, [:pointer, :int], :int
+    # attach_function_maybe :archive_read_append_filter_program, [:pointer, :string], :int
+    # attach_function_maybe :archive_read_append_filter_program_signature, [:pointer, :string, :pointer, :size_t], :int
 
     attach_function_maybe :archive_read_support_filter_all, [:pointer], :int
     # @deprecated 16 archive_read_support_filter* methods below are unused
-    attach_function_maybe :archive_read_support_filter_bzip2, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_compress, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_gzip, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_grzip, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_lrzip, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_lz4, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_lzip, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_lzma, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_lzop, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_none, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_program, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_program_signature, [:pointer, :string, :pointer, :size_t], :int
-    attach_function_maybe :archive_read_support_filter_rpm, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_uu, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_xz, [:pointer], :int
-    attach_function_maybe :archive_read_support_filter_zstd, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_bzip2, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_compress, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_gzip, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_grzip, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_lrzip, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_lz4, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_lzip, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_lzma, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_lzop, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_none, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_program, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_program_signature, [:pointer, :string, :pointer, :size_t], :int
+    # attach_function_maybe :archive_read_support_filter_rpm, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_uu, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_xz, [:pointer], :int
+    # attach_function_maybe :archive_read_support_filter_zstd, [:pointer], :int
 
     attach_function_maybe :archive_read_support_format_all, [:pointer], :int
     # @deprecated 19 archive_read_support_format_* methods below are unused
-    attach_function_maybe :archive_read_support_format_7zip, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_ar, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_by_code, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_cab, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_cpio, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_empty, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_gnutar, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_iso9660, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_lha, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_mtree, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_rar, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_rar5, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_raw, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_tar, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_warc, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_xar, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_zip, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_zip_streamable, [:pointer], :int
-    attach_function_maybe :archive_read_support_format_zip_seekable, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_7zip, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_ar, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_by_code, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_cab, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_cpio, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_empty, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_gnutar, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_iso9660, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_lha, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_mtree, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_rar, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_rar5, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_raw, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_tar, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_warc, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_xar, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_zip, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_zip_streamable, [:pointer], :int
+    # attach_function_maybe :archive_read_support_format_zip_seekable, [:pointer], :int
 
     begin
       attach_function :archive_read_free, [:pointer], :int
@@ -91,6 +91,7 @@ module Archive
     attach_function :archive_read_next_header, [:pointer, :pointer], :int
     attach_function :archive_read_data, [:pointer, :pointer, :size_t], :ssize_t
     attach_function :archive_read_data_into_fd, [:pointer, :int], :int
+    attach_function_maybe :archive_read_data_skip, [:pointer], :int
 
     attach_function :archive_write_new, [], :pointer
     attach_function :archive_write_open_filename, [:pointer, :string], :int

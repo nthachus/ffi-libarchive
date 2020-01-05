@@ -122,6 +122,17 @@ module Archive
       end
     end
 
+    # @yieldparam [Entry] entry
+    def each_entry_skip_data
+      while (entry = next_header)
+        begin
+          yield entry
+        ensure
+          C.archive_read_data_skip archive
+        end
+      end
+    end
+
     # @return [String, Integer]
     # @yieldparam [String] chunk
     def read_data(size = C::DATA_BUFFER_SIZE)
@@ -163,9 +174,11 @@ module Archive
       if command && !(cmd = command.to_s).empty?
         raise Error, self if C.archive_read_support_compression_program(archive, cmd) != C::OK
       else
-        begin
+        if C.respond_to?(:archive_read_support_compression_all)
           raise Error, self if C.archive_read_support_compression_all(archive) != C::OK
-        rescue StandardError
+        end
+
+        if C.respond_to?(:archive_read_support_filter_all)
           raise Error, self if C.archive_read_support_filter_all(archive) != C::OK
         end
       end

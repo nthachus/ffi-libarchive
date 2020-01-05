@@ -38,6 +38,7 @@ class WriteArchiveTest < Test::Unit::TestCase
 
   private
 
+  # @param [Archive::Writer] arc
   def write_content(arc)
     CONTENT_SPEC.each do |spec|
       entry_path, entry_type, entry_mode, entry_content = spec
@@ -57,9 +58,11 @@ class WriteArchiveTest < Test::Unit::TestCase
     end
   end
 
+  # @param [String] memory
   def verify_content_memory(memory)
     assert memory && !memory.empty?
 
+    # @type [Archive::Reader] ar
     Archive.read_open_memory(memory) do |ar|
       content_spec_idx = 0
 
@@ -82,9 +85,11 @@ class WriteArchiveTest < Test::Unit::TestCase
     end
   end
 
+  # @param [String] filename
   def verify_content(filename)
     assert filename && File.exist?(filename)
 
+    # @type [Archive::Reader] ar
     Archive.read_open_filename(filename) do |ar|
       content_spec_idx = 0
 
