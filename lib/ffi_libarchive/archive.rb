@@ -166,7 +166,7 @@ module Archive
     end
 
     # @!visibility protected
-    # @return [Pointer]
+    # @return [FFI::Pointer]
     attr_reader :archive
 
     # @return [String]

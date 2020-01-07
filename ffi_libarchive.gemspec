@@ -2,13 +2,15 @@
 
 Gem::Specification.new do |s|
   s.name          = 'ffi_libarchive'
-  s.version       = '1.0.1'
+  s.version       = '1.1.0'
   s.authors       = ['John Bellone', 'Jamie Winsor', 'Frank Fischer', 'Thach Nguyen']
   s.email         = %w[jbellone@bloomberg.net jamie@vialstudios.com frank-fischer@shadow-soft.de nthachus@gmail.com]
 
   s.summary       = 'A Ruby FFI binding to libarchive.'
-  s.description   =
-    'This library provides Ruby FFI bindings to the well-known [libarchive library](https://www.libarchive.org/).'
+  s.description   = 'This library provides Ruby FFI bindings to the well-known ' \
+    "[libarchive library](https://www.libarchive.org/).\n " \
+    '*NOTE* This gem is refactored / optimized version of ' \
+    '[ffi-libarchive](https://rubygems.org/gems/ffi-libarchive) with more tests to cover almost use-cases.'
   s.homepage      = 'https://github.com/nthachus/ffi_libarchive'
   s.license       = 'Apache-2.0'
 
@@ -25,5 +27,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'bundler', '>= 1.14'
   s.add_development_dependency 'rake', '>= 10.0'
   s.add_development_dependency 'rubocop', '~> 0.41'
-  s.add_development_dependency 'test-unit', '~> 3.2'
+  s.add_development_dependency 'test-unit'
 end

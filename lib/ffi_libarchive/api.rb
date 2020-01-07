@@ -113,7 +113,7 @@ module Archive
     attach_function_maybe :archive_write_set_compression_xz, [:pointer], :int
     attach_function_maybe :archive_write_set_compression_program, [:pointer, :string], :int
 
-    # @param [Pointer] archive
+    # @param [FFI::Pointer] archive
     # @return [Integer]
     def self.archive_write_set_compression(archive, compression)
       case compression

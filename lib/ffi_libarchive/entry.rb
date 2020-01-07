@@ -25,13 +25,13 @@ module Archive
     end
     # endregion
 
-    # @param [Pointer]
+    # @param [FFI::Pointer]
     # @return [Entry]
     def self.from_pointer(entry)
       new entry
     end
 
-    # @param [Pointer] entry
+    # @param [FFI::Pointer] entry
     def initialize(entry = nil)
       if entry
         @entry = entry
@@ -58,7 +58,7 @@ module Archive
       @entry = nil
     end
 
-    # @return [Pointer]
+    # @return [FFI::Pointer]
     attr_reader :entry
 
     class << self
@@ -76,7 +76,7 @@ module Archive
         define_method(opts[:name].to_sym) do |*args|
           opts[:pre].call(args) if opts[:pre].respond_to?(:call)
 
-          result = C.respond_to?(api) || !opts[:maybe] ? C.method(api).call(entry, *args) : nil
+          result = C.respond_to?(api) || !opts[:maybe] ? C.send(api, *args.unshift(entry)) : nil
           opts[:post].respond_to?(:call) ? opts[:post].call(result) : result
         end
       end
@@ -185,7 +185,7 @@ module Archive
     attach_attribute(
       :archive_entry_set_filetype,
       name: 'filetype=',
-      pre: ->(args) { args.map! { |t| t.is_a?(Integer) ? t : self.class.const_get(t.to_s.upcase) } }
+      pre: ->(args) { args.map! { |t| t.is_a?(Integer) ? t : const_get(t.to_s.upcase) } }
     )
 
     # @!method block_device?
@@ -220,42 +220,39 @@ module Archive
     # region File status
 
     # @!method stat
-    #   @return [Pointer] of struct stat*
+    #   @return [FFI::Pointer]
     attach_attribute :archive_entry_stat
 
+    # @param [String, FFI::Pointer] filename
     def copy_lstat(filename)
-      # TODO: get this work without ffi-inliner
-      begin
-        require 'ffi_libarchive/stat'
-      rescue StandardError => e
-        raise "ffi-inliner build for copy_stat failed:\n#{e}"
-      end
-
-      stat = Archive::Stat.ffi_libarchive_create_lstat(filename)
-      raise Error, "Copy stat failed: #{Archive::Stat.ffi_error}" if stat.null?
-
-      begin
-        C.archive_entry_copy_stat(entry, stat)
-      ensure
-        Archive::Stat.ffi_libarchive_free_stat(stat)
-      end
+      copy_stat_from(filename.is_a?(String) ? File.lstat(filename) : filename)
     end
 
+    # @param [String, FFI::Pointer] filename
     def copy_stat(filename)
-      # TODO: get this work without ffi-inliner
-      begin
-        require 'ffi_libarchive/stat'
-      rescue StandardError => e
-        raise "ffi-inliner build for copy_stat failed:\n#{e}"
-      end
+      copy_stat_from(filename.is_a?(String) ? File.stat(filename) : filename)
+    end
 
-      stat = Archive::Stat.ffi_libarchive_create_stat(filename)
-      raise Error, "Copy stat failed: #{Archive::Stat.ffi_error}" if stat.null?
-
-      begin
+    # @private
+    # @param [FFI::Pointer, File::Stat] stat
+    def copy_stat_from(stat)
+      if stat.respond_to?(:null?) && !stat.null?
         C.archive_entry_copy_stat(entry, stat)
-      ensure
-        Archive::Stat.ffi_libarchive_free_stat(stat)
+
+      elsif stat.is_a?(File::Stat)
+        %w[dev gid uid ino nlink rdev size mode].each do |fn|
+          # @type [Integer]
+          f = stat.send(fn)
+          send "#{fn}=", f if f
+        end
+
+        %w[atime ctime mtime birthtime].each do |fn|
+          # @type [Time]
+          f = stat.respond_to?(fn) ? stat.send(fn) : nil
+          send "set_#{fn}", f, f.tv_nsec if f
+        end
+      else
+        raise ArgumentError, "Copying stat for #{stat.class} is not supported"
       end
     end
 
@@ -540,8 +537,9 @@ module Archive
     # @param [String] name
     # @param [String] value
     def xattr_add_entry(name, value)
-      value = value.to_s
-      C.archive_entry_xattr_add_entry(entry, name, FFI::MemoryPointer.from_string(value), value.bytesize)
+      raise ArgumentError, 'value is not a String' unless value.is_a?(String)
+
+      C.archive_entry_xattr_add_entry(entry, name, Utils.get_memory_ptr(value), value.bytesize)
     end
 
     # @!method xattr_clear

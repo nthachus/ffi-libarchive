@@ -43,10 +43,11 @@ class WriteArchiveTest < Test::Unit::TestCase
     CONTENT_SPEC.each do |spec|
       entry_path, entry_type, entry_mode, entry_content = spec
 
+      # @type [Archive::Entry] entry
       arc.new_entry do |entry|
         entry.pathname = entry_path
         entry.mode = entry_mode
-        entry.filetype = Archive::Entry.const_get(entry_type.upcase)
+        entry.filetype = entry_type
         entry.size = entry_content.size if entry_content
         entry.symlink = entry_content if entry_type == :symbolic_link
         entry.atime = Time.now
@@ -66,9 +67,10 @@ class WriteArchiveTest < Test::Unit::TestCase
     Archive.read_open_memory(memory) do |ar|
       content_spec_idx = 0
 
-      while (entry = ar.next_header)
+      ar.each_entry do |entry|
         expect_pathname, expect_type, expect_mode, expect_content = CONTENT_SPEC[content_spec_idx]
 
+        # noinspection RubyNilAnalysis
         assert_equal expect_pathname, entry.pathname
         assert entry.send("#{expect_type}?")
         assert_equal expect_mode, (entry.mode & 0o7777)

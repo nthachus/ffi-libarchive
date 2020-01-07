@@ -200,8 +200,8 @@ class ReadArchiveTest < Test::Unit::TestCase
   # @param [String] filename
   # @param [String] content
   def write_content(filename, content)
-    # @type [Archive::Writer] ar
     Archive.write_open_filename(filename, Archive::COMPRESSION_BZIP2, Archive::FORMAT_TAR) do |ar|
+      # @type [Archive::Entry] entry
       ar.new_entry do |entry|
         entry.pathname = 'chubby.dat'
         entry.mode = 0o666

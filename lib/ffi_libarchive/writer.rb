@@ -109,12 +109,12 @@ module Archive
     # @yieldreturn [String]
     def write_data(*args)
       if block_given?
-        raise ArgumentError, 'Do not use argument if block given' unless args.empty?
+        raise ArgumentError, 'Not support arguments when block given' unless args.empty?
 
         len = 0
         loop do
           str = yield
-          n = str.is_a?(String) ? C.archive_write_data(archive, FFI::MemoryPointer.from_string(str), str.bytesize) : 0
+          n = str.is_a?(String) ? C.archive_write_data(archive, Utils.get_memory_ptr(str), str.bytesize) : 0
 
           raise Error, self if n < 0
           break if n.zero?
@@ -125,9 +125,9 @@ module Archive
         len
       else
         str = args[0]
-        raise ArgumentError, 'Data string is required' unless str
+        raise ArgumentError, 'Invalid String argument' unless str.is_a?(String)
 
-        n = C.archive_write_data(archive, FFI::MemoryPointer.from_string(str), str.bytesize)
+        n = C.archive_write_data(archive, Utils.get_memory_ptr(str), str.bytesize)
         raise Error, self if n < 0
 
         n

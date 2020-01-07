@@ -139,7 +139,7 @@ module Archive
       raise ArgumentError, "Buffer size must be > 0 (was: #{size})" if !size.is_a?(Integer) || size <= 0
 
       data = nil
-      buffer = FFI::MemoryPointer.new(size)
+      buffer = FFI::MemoryPointer.new(:char, size)
       len = 0
 
       while (n = C.archive_read_data(archive, buffer, size)) != 0
@@ -193,7 +193,7 @@ module Archive
     end
 
     def init_for_memory(string)
-      buffer = FFI::MemoryPointer.from_string(string)
+      buffer = Utils.get_memory_ptr(string)
       raise Error, self if C.archive_read_open_memory(archive, buffer, string.bytesize) != C::OK
     end
 
@@ -201,11 +201,12 @@ module Archive
       read_callback = proc do |_ar, _client_data, buffer|
         # @type [String]
         data = reader.call
-        if !data || data.empty?
-          0
-        else
-          buffer.write_pointer FFI::MemoryPointer.from_string(data)
+
+        if data.is_a?(String)
+          buffer.write_pointer Utils.get_memory_ptr(data)
           data.bytesize
+        else
+          0
         end
       end
       raise Error, self if C.archive_read_set_read_callback(archive, read_callback) != C::OK
