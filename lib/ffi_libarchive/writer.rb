@@ -113,8 +113,8 @@ module Archive
 
         len = 0
         loop do
-          str = yield
-          n = str.is_a?(String) ? C.archive_write_data(archive, Utils.get_memory_ptr(str), str.bytesize) : 0
+          str = yield len
+          n   = str.is_a?(String) ? C.archive_write_data(archive, Utils.get_memory_ptr(str), str.bytesize) : 0
 
           raise Error, self if n < 0
           break if n.zero?
@@ -144,16 +144,12 @@ module Archive
     def init_compression(compression)
       raise ArgumentError, 'Missing :compression argument' if !compression || compression.to_s.empty?
 
-      if !compression.is_a?(String) && C.respond_to?(:archive_write_add_filter)
-        compression = Archive.const_get("FILTER_#{compression}".upcase) unless compression.is_a?(Integer)
-        raise Error, self if C.archive_write_add_filter(archive, compression) != C::OK
-      else
-        unless compression.is_a?(Integer) || compression.is_a?(String)
-          compression = Archive.const_get("COMPRESSION_#{compression}".upcase)
-        end
-
-        raise Error, self if C.archive_write_set_compression(archive, compression) != C::OK
+      unless compression.is_a?(Integer) || compression.is_a?(String)
+        prefix      = C.respond_to?(:archive_write_add_filter) ? 'FILTER' : 'COMPRESSION'
+        compression = Archive.const_get("#{prefix}_#{compression}".upcase)
       end
+
+      raise Error, self if C.archive_write_set_compression(archive, compression) != C::OK
     end
 
     def init_format(format)
@@ -171,11 +167,11 @@ module Archive
       C.archive_write_set_bytes_in_last_block(archive, 1) if C.archive_write_get_bytes_in_last_block(archive) < 0
 
       write_callback = proc do |_ar, _client_data, buffer, length|
-        memory << buffer.read_bytes(length)
+        memory << buffer.get_bytes(0, length)
         length
       end
-      null_ptr = FFI::Pointer::NULL
 
+      null_ptr = FFI::Pointer::NULL
       raise Error, self if C.archive_write_open(archive, null_ptr, null_ptr, write_callback, null_ptr) != C::OK
     end
   end

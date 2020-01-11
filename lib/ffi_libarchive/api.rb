@@ -104,6 +104,7 @@ module Archive
       :int
     )
 
+    attach_function_maybe :archive_write_add_filter, [:pointer, :int], :int
     attach_function_maybe :archive_write_set_compression_none, [:pointer], :int
     attach_function_maybe :archive_write_set_compression_gzip, [:pointer], :int
     attach_function_maybe :archive_write_set_compression_bzip2, [:pointer], :int
@@ -111,14 +112,22 @@ module Archive
     attach_function_maybe :archive_write_set_compression_compress, [:pointer], :int
     attach_function_maybe :archive_write_set_compression_lzma, [:pointer], :int
     attach_function_maybe :archive_write_set_compression_xz, [:pointer], :int
-    attach_function_maybe :archive_write_set_compression_program, [:pointer, :string], :int
+    begin
+      attach_function(
+        :archive_write_set_compression_program, :archive_write_add_filter_program, [:pointer, :string], :int
+      )
+    rescue FFI::NotFoundError
+      attach_function :archive_write_set_compression_program, [:pointer, :string], :int
+    end
 
     # @param [FFI::Pointer] archive
     # @return [Integer]
     def self.archive_write_set_compression(archive, compression)
+      return archive_write_set_compression_program(archive, compression) if compression.is_a?(String)
+      return archive_write_add_filter(archive, compression) if respond_to?(:archive_write_add_filter)
+
+      # :nocov:
       case compression
-      when String
-        archive_write_set_compression_program archive, compression
       when COMPRESSION_BZIP2
         archive_write_set_compression_bzip2 archive
       when COMPRESSION_GZIP
@@ -136,9 +145,9 @@ module Archive
       else
         raise "Unknown compression type: #{compression}"
       end
+      # :nocov:
     end
 
-    attach_function_maybe :archive_write_add_filter, [:pointer, :int], :int
     attach_function :archive_write_set_format, [:pointer, :int], :int
     attach_function :archive_write_data, [:pointer, :pointer, :size_t], :ssize_t
     attach_function :archive_write_header, [:pointer, :pointer], :int

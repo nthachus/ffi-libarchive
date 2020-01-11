@@ -69,21 +69,21 @@ module Archive
   # endregion
 
   # region Extraction Flags
-  EXTRACT_OWNER              = 0x0001
-  EXTRACT_PERM               = 0x0002
-  EXTRACT_TIME               = 0x0004
-  EXTRACT_NO_OVERWRITE       = 0x0008
-  EXTRACT_UNLINK             = 0x0010
-  EXTRACT_ACL                = 0x0020
-  EXTRACT_FFLAGS             = 0x0040
-  EXTRACT_XATTR              = 0x0080
-  EXTRACT_SECURE_SYMLINKS    = 0x0100
-  EXTRACT_SECURE_NODOTDOT    = 0x0200
-  EXTRACT_NO_AUTODIR         = 0x0400
-  EXTRACT_NO_OVERWRITE_NEWER = 0x0800
-  EXTRACT_SPARSE             = 0x1000
-  EXTRACT_MAC_METADATA       = 0x2000
-  EXTRACT_NO_HFS_COMPRESSION = 0x4000
+  EXTRACT_OWNER                  = 0x0001
+  EXTRACT_PERM                   = 0x0002
+  EXTRACT_TIME                   = 0x0004
+  EXTRACT_NO_OVERWRITE           = 0x0008
+  EXTRACT_UNLINK                 = 0x0010
+  EXTRACT_ACL                    = 0x0020
+  EXTRACT_FFLAGS                 = 0x0040
+  EXTRACT_XATTR                  = 0x0080
+  EXTRACT_SECURE_SYMLINKS        = 0x0100
+  EXTRACT_SECURE_NODOTDOT        = 0x0200
+  EXTRACT_NO_AUTODIR             = 0x0400
+  EXTRACT_NO_OVERWRITE_NEWER     = 0x0800
+  EXTRACT_SPARSE                 = 0x1000
+  EXTRACT_MAC_METADATA           = 0x2000
+  EXTRACT_NO_HFS_COMPRESSION     = 0x4000
   EXTRACT_HFS_COMPRESSION_FORCED = 0x8000
   EXTRACT_SECURE_NOABSOLUTEPATHS = 0x10000
   EXTRACT_CLEAR_NOCHANGE_FFLAGS  = 0x20000
@@ -161,7 +161,7 @@ module Archive
       # TODO: do we need synchronization here?
       @archive_free[0].call(@archive) if @archive && @archive_free[0].respond_to?(:call) # TODO: Error check?
     ensure
-      @archive = nil
+      @archive         = nil
       @archive_free[0] = nil
     end
 

@@ -3,6 +3,7 @@
 module Archive
   class Entry
     # region File-type Constants
+
     S_IFMT   = 0o170000 # bits mask
     S_IFSOCK = 0o140000
     S_IFLNK  = 0o120000
@@ -23,6 +24,7 @@ module Archive
     def self.file_types
       @file_types ||= Hash[constants.reject { |k| k =~ /^S_/ }.map { |k| [k.downcase, const_get(k)] }]
     end
+
     # endregion
 
     # @param [FFI::Pointer]
@@ -184,8 +186,7 @@ module Archive
     #   @param [Integer, #to_s] type
     attach_attribute(
       :archive_entry_set_filetype,
-      name: 'filetype=',
-      pre: ->(args) { args.map! { |t| t.is_a?(Integer) ? t : const_get(t.to_s.upcase) } }
+      name: 'filetype=', pre: ->(args) { args.map! { |t| t.is_a?(Integer) ? t : const_get(t.to_s.upcase) } }
     )
 
     # @!method block_device?
@@ -287,11 +288,11 @@ module Archive
     # region File flags/attributes (see #lsattr)
     # @return [Array<Integer>]  of [:set, :clear]
     def fflags
-      set = FFI::MemoryPointer.new :ulong
+      set   = FFI::MemoryPointer.new :ulong
       clear = FFI::MemoryPointer.new :ulong
       C.archive_entry_fflags(entry, set, clear)
 
-      [set.read(:ulong), clear.read(:ulong)]
+      [set.get_ulong(0), clear.get_ulong(0)]
     end
 
     # @!method set_fflags(set, clear)
@@ -551,15 +552,17 @@ module Archive
 
     # @return [Array<String>] of [:name, :value]
     def xattr_next
-      name = FFI::MemoryPointer.new :pointer
+      name  = FFI::MemoryPointer.new :pointer
       value = FFI::MemoryPointer.new :pointer
-      size = FFI::MemoryPointer.new :size_t
+      size  = FFI::MemoryPointer.new :size_t
       return nil if C.archive_entry_xattr_next(entry, name, value, size) != C::OK
 
-      # TODO: sometimes size.read(:size_t) could work
+      name  = name.get_pointer(0) unless name.null?
+      value = value.get_pointer(0) unless value.null?
+      # Someday size.get(:size_t) could work
       [
-        name.null? ? nil : name.read_string_to_null,
-        value.null? ? nil : value.read_string_length(size.read(:size_t))
+        name.null? ? nil : name.get_string(0),
+        value.null? ? nil : value.get_bytes(0, size.send("get_uint#{FFI.type_size(:size_t) * 8}", 0))
       ]
     end
 

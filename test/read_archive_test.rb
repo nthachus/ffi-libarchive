@@ -36,9 +36,9 @@ class ReadArchiveTest < Test::Unit::TestCase
     content = SecureRandom.urlsafe_base64(entry_size)[0, entry_size]
 
     Dir.mktmpdir do |dir|
-      filename = File.join(dir, 'test.tar.gz')
+      filename = File.join(dir, 'test.tar.bz2')
 
-      write_content filename, content
+      compress_content filename, content
       assert File.exist?(filename)
 
       Archive.read_open_filename(filename) do |ar|
@@ -52,7 +52,7 @@ class ReadArchiveTest < Test::Unit::TestCase
       Archive.read_open_filename(filename) do |ar|
         ar.next_header
         data = String.new
-        ar.read_data(128) { |chunk| data << chunk }
+        ar.read_data(2048) { |chunk| data << chunk }
 
         assert_equal entry_size, data.size
         assert_equal content, data
@@ -66,11 +66,14 @@ class ReadArchiveTest < Test::Unit::TestCase
         Archive::Utils.change_cwd(dir) do
           # @type [Archive::Entry] e
           ar.each_entry do |e|
-            next if e.symbolic_link? && FFI::Platform.windows?
-
-            ar.extract(e)
+            if e.symbolic_link? && FFI::Platform.windows?
+              File.write(e.pathname, e.symlink, mode: 'wb')
+            else
+              ar.extract(e)
+            end
 
             assert File.exist?(e.pathname)
+            assert_operator 0, :<, File.size(e.pathname) unless e.directory?
             refute_equal File.mtime(e.pathname), e.mtime
           end
         end
@@ -84,11 +87,14 @@ class ReadArchiveTest < Test::Unit::TestCase
         Archive::Utils.change_cwd(dir) do
           # @type [Archive::Entry] e
           ar.each_entry do |e|
-            next if e.symbolic_link? && FFI::Platform.windows?
-
-            ar.extract(e, Archive::EXTRACT_TIME)
+            if e.symbolic_link? && FFI::Platform.windows?
+              File.write(e.pathname, e.symlink, mode: 'wb')
+            else
+              ar.extract(e, Archive::EXTRACT_TIME)
+            end
 
             assert File.exist?(e.pathname)
+            assert_operator 0, :<, File.size(e.pathname) unless e.directory?
             assert_equal File.mtime(e.pathname), e.mtime unless e.directory? || e.symbolic_link?
           end
         end
@@ -167,8 +173,9 @@ class ReadArchiveTest < Test::Unit::TestCase
 
   def test_read_from_stream_with_skip_seek_object
     expect_pathname, expect_type, expect_mode, expect_content = CONTENT_SPEC[6]
+
     verified = false
-    reader = SkipNSeekTestReader.new
+    reader   = SkipNSeekTestReader.new
 
     Archive.read_open_stream(reader) do |ar|
       ar.each_entry do |entry|
@@ -199,16 +206,16 @@ class ReadArchiveTest < Test::Unit::TestCase
 
   # @param [String] filename
   # @param [String] content
-  def write_content(filename, content)
+  def compress_content(filename, content)
     Archive.write_open_filename(filename, Archive::COMPRESSION_BZIP2, Archive::FORMAT_TAR) do |ar|
       # @type [Archive::Entry] entry
       ar.new_entry do |entry|
         entry.pathname = 'chubby.dat'
-        entry.mode = 0o666
+        entry.mode     = 0o666
         entry.filetype = Archive::Entry::FILE
-        entry.atime = Time.now
-        entry.mtime = Time.now
-        entry.size = content.bytesize
+        entry.atime    = Time.now
+        entry.mtime    = Time.now
+        entry.size     = content.bytesize
 
         ar.write_header(entry)
         ar.write_data(content)

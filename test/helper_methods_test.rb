@@ -14,11 +14,22 @@ class HelperMethodsTest < Test::Unit::TestCase
   end
 
   def test_convert_to_wide_string
-    s = File.basename __FILE__
+    s  = File.basename __FILE__
     ws = Archive::Utils.to_wide_string s
 
     refute_equal s.encoding, ws.encoding
     assert_operator s.bytesize, :<, ws.bytesize
     assert_equal s.size, ws.size
+  end
+
+  def test_create_memory_ptr_using_block
+    Archive::Utils.get_memory_ptr('...') do |p|
+      refute p.null?
+      assert_equal 3, p.size
+      assert_equal '...', p.get_string(0, 3)
+    end
+
+    # assert ptr.null?
+    # refute ptr.get_string(0, 3)
   end
 end

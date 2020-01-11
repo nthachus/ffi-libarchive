@@ -99,7 +99,7 @@ module Archive
 
       case C.archive_read_next_header(archive, entry_ptr)
       when C::OK
-        Entry.from_pointer entry_ptr.read_pointer
+        Entry.from_pointer entry_ptr.get_pointer(0)
       when C::EOF
         nil
       else
@@ -138,15 +138,15 @@ module Archive
     def read_data(size = C::DATA_BUFFER_SIZE)
       raise ArgumentError, "Buffer size must be > 0 (was: #{size})" if !size.is_a?(Integer) || size <= 0
 
-      data = nil
+      data   = nil
       buffer = FFI::MemoryPointer.new(:char, size)
-      len = 0
+      len    = 0
 
       while (n = C.archive_read_data(archive, buffer, size)) != 0
         # TODO: C::FATAL, C::WARN, C::RETRY
         raise Error, self if n < 0
 
-        chunk = buffer.read_bytes(n)
+        chunk = buffer.get_bytes(0, n)
         if block_given?
           yield chunk
         elsif data
@@ -163,8 +163,8 @@ module Archive
 
     # @param [String] file_name
     def save_data(file_name)
-      IO.sysopen(file_name, 'wb') do |fd|
-        raise Error, self if C.archive_read_data_into_fd(archive, fd) != C::OK
+      File.open(file_name, 'wb') do |f|
+        raise Error, self if C.archive_read_data_into_fd(archive, f.fileno) != C::OK
       end
     end
 
@@ -173,14 +173,10 @@ module Archive
     def init_compression(command)
       if command && !(cmd = command.to_s).empty?
         raise Error, self if C.archive_read_support_compression_program(archive, cmd) != C::OK
-      else
-        if C.respond_to?(:archive_read_support_compression_all)
-          raise Error, self if C.archive_read_support_compression_all(archive) != C::OK
-        end
-
-        if C.respond_to?(:archive_read_support_filter_all)
-          raise Error, self if C.archive_read_support_filter_all(archive) != C::OK
-        end
+      elsif C.respond_to?(:archive_read_support_filter_all)
+        raise Error, self if C.archive_read_support_filter_all(archive) != C::OK
+      elsif C.archive_read_support_compression_all(archive) != C::OK
+        raise Error, self
       end
     end
 
@@ -188,8 +184,10 @@ module Archive
       raise Error, self if C.archive_read_support_format_all(archive) != C::OK
     end
 
+    BLOCK_SIZE = 1024
+
     def init_for_filename(file_name)
-      raise Error, self if C.archive_read_open_filename(archive, file_name, 1024) != C::OK # block_size
+      raise Error, self if C.archive_read_open_filename(archive, file_name, BLOCK_SIZE) != C::OK
     end
 
     def init_for_memory(string)
@@ -203,7 +201,7 @@ module Archive
         data = reader.call
 
         if data.is_a?(String)
-          buffer.write_pointer Utils.get_memory_ptr(data)
+          buffer.put_pointer 0, Utils.get_memory_ptr(data)
           data.bytesize
         else
           0

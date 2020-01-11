@@ -40,9 +40,9 @@ module Archive
         @wchar_encoding ||=
           begin
             ptr = FFI::MemoryPointer.new :char, 12
-            rc = LibC.mbstowcs ptr, '!@', 3
+            rc  = LibC.mbstowcs ptr, '!@', 3
 
-            str = ptr.read_bytes 6
+            str = ptr.get_bytes 0, 6
             enc = WCHAR_ENCODINGS.key(str)
             raise "Unsupported wide-character: #{rc} - #{str.inspect}" unless enc
 
@@ -57,10 +57,10 @@ module Archive
 
         if wchar_encoding.include?('32')
           wchar_sz = 4
-          wchar_t = :int32
+          wchar_t  = :int32
         else
           wchar_sz = 2
-          wchar_t = :int16
+          wchar_t  = :int16
         end
 
         # detect string length in bytes
@@ -70,7 +70,7 @@ module Archive
         len = 0
         len += wchar_sz while (!sz || len < sz) && ptr.send("get_#{wchar_t}", len) != 0
 
-        ptr.read_bytes(len).force_encoding(wchar_encoding)
+        ptr.get_bytes(0, len).force_encoding(wchar_encoding)
       end
 
       # @param [String] str
@@ -102,14 +102,15 @@ module Archive
       # @return [FFI::Pointer]
       # @yieldparam [FFI::Pointer]
       def get_memory_ptr(string)
+        len = string.bytesize
         if block_given?
-          FFI::MemoryPointer.new(:char, string.bytesize) do |ptr|
-            ptr.write_string string
+          FFI::MemoryPointer.new(:char, len, false) do |ptr|
+            ptr.put_bytes(0, string, 0, len)
             yield ptr
           end
         else
-          ptr = FFI::MemoryPointer.new(:char, string.bytesize)
-          ptr.write_string string
+          ptr = FFI::MemoryPointer.new(:char, len, false)
+          ptr.put_bytes(0, string, 0, len)
           ptr
         end
       end
