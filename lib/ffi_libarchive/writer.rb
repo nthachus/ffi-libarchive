@@ -139,6 +139,11 @@ module Archive
       raise Error, self if C.archive_write_header(archive, entry.entry) != C::OK
     end
 
+    def close
+      super
+      @write_callback = nil
+    end
+
     protected
 
     def init_compression(compression)
@@ -166,13 +171,13 @@ module Archive
     def init_for_memory(memory)
       C.archive_write_set_bytes_in_last_block(archive, 1) if C.archive_write_get_bytes_in_last_block(archive) < 0
 
-      write_callback = proc do |_ar, _client_data, buffer, length|
+      @write_callback = proc do |_ar, _client_data, buffer, length|
         memory << buffer.get_bytes(0, length)
         length
       end
 
       null_ptr = FFI::Pointer::NULL
-      raise Error, self if C.archive_write_open(archive, null_ptr, null_ptr, write_callback, null_ptr) != C::OK
+      raise Error, self if C.archive_write_open(archive, null_ptr, null_ptr, @write_callback, null_ptr) != C::OK
     end
   end
 end

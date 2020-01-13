@@ -2,13 +2,13 @@
 
 Gem::Specification.new do |s|
   s.name          = 'ffi_libarchive'
-  s.version       = '1.1.0'
+  s.version       = '1.1.1'
   s.authors       = ['John Bellone', 'Jamie Winsor', 'Frank Fischer', 'Thach Nguyen']
   s.email         = %w[jbellone@bloomberg.net jamie@vialstudios.com frank-fischer@shadow-soft.de nthachus@gmail.com]
 
   s.summary       = 'A Ruby FFI binding to libarchive.'
   s.description   = 'This library provides Ruby FFI bindings to the well-known ' \
-    "[libarchive library](https://www.libarchive.org/).\n " \
+    "[libarchive library](https://www.libarchive.org/).\n\n\n" \
     '*NOTE* This gem is refactored / optimized version of ' \
     '[ffi-libarchive](https://rubygems.org/gems/ffi-libarchive) with more tests to cover almost use-cases.'
   s.homepage      = 'https://github.com/nthachus/ffi_libarchive'

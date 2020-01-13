@@ -168,6 +168,13 @@ module Archive
       end
     end
 
+    def close
+      super
+      @read_callback = nil
+      @skip_callback = nil
+      @seek_callback = nil
+    end
+
     protected
 
     def init_compression(command)
@@ -196,7 +203,7 @@ module Archive
     end
 
     def init_for_stream(reader)
-      read_callback = proc do |_ar, _client_data, buffer|
+      @read_callback = proc do |_ar, _client_data, buffer|
         # @type [String]
         data = reader.call
 
@@ -207,16 +214,16 @@ module Archive
           0
         end
       end
-      raise Error, self if C.archive_read_set_read_callback(archive, read_callback) != C::OK
+      raise Error, self if C.archive_read_set_read_callback(archive, @read_callback) != C::OK
 
       if reader.respond_to?(:skip)
-        skip_callback = proc { |_ar, _client_data, request| reader.skip(request) }
-        raise Error, self if C.archive_read_set_skip_callback(archive, skip_callback) != C::OK
+        @skip_callback = proc { |_ar, _client_data, request| reader.skip(request) }
+        raise Error, self if C.archive_read_set_skip_callback(archive, @skip_callback) != C::OK
       end
 
       if reader.respond_to?(:seek)
-        seek_callback = proc { |_ar, _client_data, offset, whence| reader.seek(offset, whence) }
-        raise Error, self if C.archive_read_set_seek_callback(archive, seek_callback) != C::OK
+        @seek_callback = proc { |_ar, _client_data, offset, whence| reader.seek(offset, whence) }
+        raise Error, self if C.archive_read_set_seek_callback(archive, @seek_callback) != C::OK
       end
 
       # Required or open1 will segfault, even though the callback data is not used.
